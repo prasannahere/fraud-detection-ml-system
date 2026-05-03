@@ -54,6 +54,8 @@ End-to-end machine learning system for fraud detection: feature engineering, mod
 
 👉 **IEEE Fraud Detection** — transaction and identity tables for fraud classification.
 
+Download the competition data from [Kaggle: IEEE-CIS Fraud Detection](https://www.kaggle.com/competitions/ieee-fraud-detection/data) (requires a Kaggle account and competition rules acceptance).
+
 ---
 
 ## 🗺️ 4-Week Roadmap (GCP Blueprint)

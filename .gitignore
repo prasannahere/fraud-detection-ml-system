@@ -226,4 +226,10 @@ __marimo__/
 *.csv
 *.parquet
 
+outputs/
+
 .DS_Store
+
+/codes
+/sandbox
+/data

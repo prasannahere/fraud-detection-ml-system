@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,15 @@ MONITORED_FEATURES = [
 DRIFT_STATUS_THRESHOLDS = {"stable": 0.10, "moderate": 0.20}
 
 
+def _finite_float(value: float, default: float = 0.0) -> float:
+    """Coerce NaN/Inf to a JSON-safe float (NaN is truthy, so avoid `x or default`)."""
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    return numeric if math.isfinite(numeric) else default
+
+
 def load_training_stats() -> dict[str, dict[str, float]] | None:
     if not TRAINING_STATS_PKL.exists():
         return None
@@ -36,10 +46,10 @@ def save_training_stats(df: pd.DataFrame, path: Path | None = None) -> None:
     numeric = df.select_dtypes(include=[np.number])
     stats = {
         col: {
-            "mean": float(numeric[col].mean()),
-            "std": float(numeric[col].std() or 1.0),
-            "p05": float(numeric[col].quantile(0.05)),
-            "p95": float(numeric[col].quantile(0.95)),
+            "mean": _finite_float(float(numeric[col].mean())),
+            "std": _finite_float(float(numeric[col].std()), default=1.0),
+            "p05": _finite_float(float(numeric[col].quantile(0.05))),
+            "p95": _finite_float(float(numeric[col].quantile(0.95))),
         }
         for col in numeric.columns
     }
@@ -57,9 +67,9 @@ def check_drift(raw_df: pd.DataFrame, z_threshold: float = 3.0) -> dict[str, Any
     for col, ref in reference.items():
         if col not in numeric.columns:
             continue
-        value = float(numeric[col].iloc[0])
-        mean = ref["mean"]
-        std = ref["std"] or 1.0
+        value = _finite_float(float(numeric[col].iloc[0]))
+        mean = _finite_float(ref["mean"])
+        std = _finite_float(ref["std"], default=1.0)
         z_score = abs((value - mean) / std)
         if z_score > z_threshold or value < ref["p05"] or value > ref["p95"]:
             alerts.append(
@@ -92,20 +102,21 @@ def _feature_drift_score(values: pd.Series, ref: dict[str, float]) -> float:
     if clean.empty:
         return 0.0
 
-    batch_mean = float(clean.mean())
-    batch_std = float(clean.std() or 1e-6)
-    train_mean = ref["mean"]
-    train_std = ref["std"] or 1e-6
+    batch_mean = _finite_float(float(clean.mean()))
+    batch_std = _finite_float(float(clean.std()), default=1e-6)
+    train_mean = _finite_float(ref["mean"])
+    train_std = _finite_float(ref["std"], default=1e-6)
 
     mean_shift = abs(batch_mean - train_mean) / max(train_std, 1e-6)
     std_ratio = max(batch_std / max(train_std, 1e-6), max(train_std, 1e-6) / max(batch_std, 1e-6))
     std_shift = max(0.0, std_ratio - 1.0)
 
-    p05, p95 = ref.get("p05", train_mean - 2 * train_std), ref.get("p95", train_mean + 2 * train_std)
-    outside = float(((clean < p05) | (clean > p95)).mean())
+    p05 = _finite_float(ref.get("p05", train_mean - 2 * train_std))
+    p95 = _finite_float(ref.get("p95", train_mean + 2 * train_std))
+    outside = _finite_float(float(((clean < p05) | (clean > p95)).mean()))
 
     score = 0.5 * min(1.0, mean_shift / 3.0) + 0.3 * min(1.0, std_shift / 2.0) + 0.2 * outside
-    return round(min(1.0, score), 3)
+    return round(min(1.0, _finite_float(score)), 3)
 
 
 def compute_feature_drift(
@@ -136,13 +147,15 @@ def compute_feature_drift(
 
         values = source[feature]
         score = _feature_drift_score(values, ref)
+        batch_mean = _finite_float(float(pd.to_numeric(values, errors="coerce").mean()))
+        training_mean = _finite_float(ref["mean"])
         rows.append(
             {
                 "feature": feature,
                 "drift_score": score,
                 "status": _drift_status(score),
-                "batch_mean": round(float(pd.to_numeric(values, errors="coerce").mean()), 4),
-                "training_mean": round(ref["mean"], 4),
+                "batch_mean": round(batch_mean, 4),
+                "training_mean": round(training_mean, 4),
             }
         )
 

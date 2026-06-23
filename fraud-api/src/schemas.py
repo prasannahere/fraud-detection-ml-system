@@ -8,7 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class TransactionInput(BaseModel):
     """Raw IEEE-CIS transaction (+ optional identity) fields."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    # Allow V1–V339 and other IEEE columns from the live stream (preprocessor selects features).
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     TransactionID: Optional[int] = Field(default=None, ge=1)
     TransactionDT: float = Field(..., ge=0)

@@ -20,7 +20,7 @@ export function KpiCards({ metrics }: Props) {
         return (
           <article key={card.key} className={`kpi-card ${card.accent ? "kpi-card-accent" : ""}`}>
             <p className="kpi-card-label">{card.label}</p>
-            <p className={`kpi-card-value ${card.accent && raw > 0 ? "danger" : ""}`}>{value}</p>
+            <p className="kpi-card-value">{value}</p>
           </article>
         );
       })}

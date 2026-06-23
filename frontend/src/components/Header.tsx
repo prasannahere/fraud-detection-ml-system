@@ -5,12 +5,8 @@ type Props = {
   streamHealth: HealthState;
   signedIn: boolean;
   username: string;
-  password: string;
   streaming: boolean;
   scoreStream: boolean;
-  onUsernameChange: (v: string) => void;
-  onPasswordChange: (v: string) => void;
-  onLogin: () => void;
   onLogout: () => void;
   onStartStream: () => void;
   onStopStream: () => void;
@@ -33,12 +29,8 @@ export function Header({
   streamHealth,
   signedIn,
   username,
-  password,
   streaming,
   scoreStream,
-  onUsernameChange,
-  onPasswordChange,
-  onLogin,
   onLogout,
   onStartStream,
   onStopStream,
@@ -68,7 +60,7 @@ export function Header({
       <div className="header-center">
         <div className="stream-controls">
           {!streaming ? (
-            <button className="btn btn-primary btn-sm" type="button" onClick={onStartStream}>
+            <button className="btn btn-primary btn-sm" type="button" onClick={onStartStream} disabled={!signedIn}>
               Start stream
             </button>
           ) : (
@@ -87,6 +79,7 @@ export function Header({
               type="checkbox"
               checked={scoreStream}
               onChange={(e) => onScoreStreamChange(e.target.checked)}
+              disabled={!signedIn}
             />
             Auto-score
           </label>
@@ -107,29 +100,7 @@ export function Header({
           <StatusDot state={streamHealth} label="Stream" />
         </div>
 
-        {!signedIn ? (
-          <div className="auth-form">
-            <input
-              className="input input-sm"
-              value={username}
-              onChange={(e) => onUsernameChange(e.target.value)}
-              placeholder="Username"
-              aria-label="Username"
-            />
-            <input
-              className="input input-sm"
-              type="password"
-              value={password}
-              onChange={(e) => onPasswordChange(e.target.value)}
-              placeholder="Password"
-              aria-label="Password"
-              onKeyDown={(e) => e.key === "Enter" && onLogin()}
-            />
-            <button className="btn btn-primary btn-sm" type="button" onClick={onLogin}>
-              Sign in
-            </button>
-          </div>
-        ) : (
+        {signedIn && (
           <div className="auth-signed-in">
             <span className="user-badge">
               <span className="user-avatar">{username.charAt(0).toUpperCase()}</span>

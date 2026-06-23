@@ -54,6 +54,7 @@ class FraudPreprocessor:
             raise ValueError("Preprocessor is not fitted. Load encoders or call fit() first.")
 
         out = df.copy()
+        out = fill_missing_raw_columns(out)
         out = normalize_d_columns(out)
         out = self._apply_base_encoding(out)
         out, _ = self._apply_feature_engineering(out, pd.DataFrame(), fit=False)
@@ -90,6 +91,15 @@ def normalize_identity_columns(df: pd.DataFrame) -> pd.DataFrame:
     rename = {col: target for col, target in IDENTITY_RENAME_MAP.items() if col in out.columns}
     if rename:
         out = out.rename(columns=rename)
+    return out
+
+
+def fill_missing_raw_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add NaN placeholders for columns omitted when streaming sparse rows."""
+    out = df.copy()
+    for col in LOAD_COLS:
+        if col not in out.columns:
+            out[col] = np.nan
     return out
 
 

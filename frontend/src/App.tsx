@@ -14,11 +14,14 @@ import {
 } from "./api";
 import { DriftMonitoring } from "./components/DriftMonitoring";
 import { ExplainabilityPanel } from "./components/ExplainabilityPanel";
+import { ExpandablePanel } from "./components/ExpandablePanel";
 import { FraudTimeline } from "./components/FraudTimeline";
 import { Header } from "./components/Header";
 import { KpiCards } from "./components/KpiCards";
+import { LoginOverlay } from "./components/LoginOverlay";
+import { PanelOverlay } from "./components/PanelOverlay";
 import { TransactionMonitor } from "./components/TransactionMonitor";
-import type { ExplainData, FeatureDriftData, KpiMetrics, TransactionRecord } from "./types";
+import type { DashboardPanelId, ExplainData, FeatureDriftData, KpiMetrics, TransactionRecord } from "./types";
 import {
   FRAUD_THRESHOLD,
   buildTransactionRecord,
@@ -29,12 +32,15 @@ type HealthState = "ok" | "degraded" | "offline" | "checking";
 
 const MAX_TRANSACTIONS = 500;
 const DRIFT_BATCH_SIZE = 50;
+const DRIFT_DEBOUNCE_MS = 3000;
 
 export default function App() {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin");
   const [signedIn, setSignedIn] = useState(!!getToken());
   const [error, setError] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
   const [fraudHealth, setFraudHealth] = useState<HealthState>("checking");
   const [streamHealth, setStreamHealth] = useState<HealthState>("checking");
   const [threshold] = useState(FRAUD_THRESHOLD);
@@ -45,10 +51,13 @@ export default function App() {
   const [explainLoading, setExplainLoading] = useState(false);
   const [driftData, setDriftData] = useState<FeatureDriftData | null>(null);
   const [driftLoading, setDriftLoading] = useState(false);
+  const driftInFlightRef = useRef(false);
+  const hasDriftDataRef = useRef(false);
 
   const [streaming, setStreaming] = useState(false);
   const [scoreStream, setScoreStream] = useState(true);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [expandedPanel, setExpandedPanel] = useState<DashboardPanelId | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const selectedTx = useMemo(
@@ -87,15 +96,19 @@ export default function App() {
 
   const refreshDrift = useCallback(
     async (batch: TransactionRecord[]) => {
-      if (!signedIn || batch.length === 0) return;
-      setDriftLoading(true);
+      if (!signedIn || batch.length === 0 || driftInFlightRef.current) return;
+      driftInFlightRef.current = true;
+      // Only show the full loading state on first load — keep chart visible during refresh.
+      if (!hasDriftDataRef.current) setDriftLoading(true);
       try {
         const payload = batch.slice(0, DRIFT_BATCH_SIZE).map((t) => toTransaction(t.raw));
         const { data } = await driftMonitor(payload);
         setDriftData(data);
+        hasDriftDataRef.current = true;
       } catch {
         /* drift is best-effort */
       } finally {
+        driftInFlightRef.current = false;
         setDriftLoading(false);
       }
     },
@@ -139,7 +152,7 @@ export default function App() {
       if (!signedIn || !scoreStream) return null;
       try {
         const tx = toTransaction(row);
-        if (!tx.TransactionDT || !tx.TransactionAmt) return null;
+        if (tx.TransactionDT == null || tx.TransactionAmt == null) return null;
         const { data } = await predict(tx, threshold);
         return buildTransactionRecord(row, data.fraud_probability, "stream", threshold);
       } catch {
@@ -159,26 +172,31 @@ export default function App() {
     if (transactions.length === 0 || !signedIn) return;
     const timer = window.setTimeout(() => {
       refreshDrift(transactions);
-    }, 600);
+    }, DRIFT_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [transactions, signedIn, refreshDrift]);
 
   const handleLogin = async () => {
-    setError("");
+    setLoginError("");
+    setLoginLoading(true);
     try {
       await login(username, password);
       setSignedIn(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Login failed");
+      setLoginError(e instanceof Error ? e.message : "Login failed");
+    } finally {
+      setLoginLoading(false);
     }
   };
 
   const handleLogout = () => {
     setToken("");
     setSignedIn(false);
+    setLoginError("");
     stopStream();
     setExplainData(null);
     setDriftData(null);
+    hasDriftDataRef.current = false;
   };
 
   const stopStream = () => {
@@ -213,6 +231,33 @@ export default function App() {
     }
   };
 
+  const renderDashboardPanel = (id: DashboardPanelId, expanded: boolean) => {
+    switch (id) {
+      case "timeline":
+        return <FraudTimeline transactions={transactions} threshold={threshold} expanded={expanded} />;
+      case "monitor":
+        return (
+          <TransactionMonitor
+            transactions={transactions}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            expanded={expanded}
+          />
+        );
+      case "explain":
+        return (
+          <ExplainabilityPanel
+            transaction={selectedTx}
+            explain={explainData}
+            loading={explainLoading}
+            expanded={expanded}
+          />
+        );
+      case "drift":
+        return <DriftMonitoring drift={driftData} loading={driftLoading} expanded={expanded} />;
+    }
+  };
+
   const startStream = () => {
     stopStream();
     setStreaming(true);
@@ -238,56 +283,67 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header
-        fraudHealth={fraudHealth}
-        streamHealth={streamHealth}
-        signedIn={signedIn}
-        username={username}
-        password={password}
-        streaming={streaming}
-        scoreStream={scoreStream}
-        onUsernameChange={setUsername}
-        onPasswordChange={setPassword}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        onStartStream={startStream}
-        onStopStream={stopStream}
-        onLoadBatch={loadBatch}
-        batchLoading={batchLoading}
-        onScoreStreamChange={setScoreStream}
-      />
+      <div className={signedIn ? "dashboard-shell" : "dashboard-shell dashboard-shell--locked"}>
+        <Header
+          fraudHealth={fraudHealth}
+          streamHealth={streamHealth}
+          signedIn={signedIn}
+          username={username}
+          streaming={streaming}
+          scoreStream={scoreStream}
+          onLogout={handleLogout}
+          onStartStream={startStream}
+          onStopStream={stopStream}
+          onLoadBatch={loadBatch}
+          batchLoading={batchLoading}
+          onScoreStreamChange={setScoreStream}
+        />
 
-      <main className="main">
-        {error && (
-          <div className="alert alert-error" role="alert">
-            {error}
+        <main className="main">
+          {error && (
+            <div className="alert alert-error" role="alert">
+              {error}
+            </div>
+          )}
+
+          <KpiCards metrics={metrics} />
+
+          <ExpandablePanel onExpand={() => signedIn && setExpandedPanel("timeline")}>
+            {renderDashboardPanel("timeline", false)}
+          </ExpandablePanel>
+
+          <div className="split-grid">
+            <ExpandablePanel onExpand={() => signedIn && setExpandedPanel("monitor")}>
+              {renderDashboardPanel("monitor", false)}
+            </ExpandablePanel>
+            <ExpandablePanel onExpand={() => signedIn && setExpandedPanel("explain")}>
+              {renderDashboardPanel("explain", false)}
+            </ExpandablePanel>
           </div>
-        )}
 
-        {!signedIn && (
-          <div className="alert alert-info">
-            Sign in to score transactions with the XGBoost model and view SHAP explanations.
-          </div>
-        )}
+          <ExpandablePanel onExpand={() => signedIn && setExpandedPanel("drift")}>
+            {renderDashboardPanel("drift", false)}
+          </ExpandablePanel>
+        </main>
+      </div>
 
-        <KpiCards metrics={metrics} />
-        <FraudTimeline transactions={transactions} threshold={threshold} />
+      {!signedIn && (
+        <LoginOverlay
+          username={username}
+          password={password}
+          error={loginError}
+          loading={loginLoading}
+          onUsernameChange={setUsername}
+          onPasswordChange={setPassword}
+          onLogin={handleLogin}
+        />
+      )}
 
-        <div className="split-grid">
-          <TransactionMonitor
-            transactions={transactions}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-          />
-          <ExplainabilityPanel
-            transaction={selectedTx}
-            explain={explainData}
-            loading={explainLoading}
-          />
-        </div>
-
-        <DriftMonitoring drift={driftData} loading={driftLoading} />
-      </main>
+      {expandedPanel && signedIn && (
+        <PanelOverlay onClose={() => setExpandedPanel(null)}>
+          {renderDashboardPanel(expandedPanel, true)}
+        </PanelOverlay>
+      )}
     </div>
   );
 }

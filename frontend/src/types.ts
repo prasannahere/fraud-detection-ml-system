@@ -51,3 +51,5 @@ export type KpiMetrics = {
 export type SortKey = "transactionId" | "timestamp" | "amount" | "fraudScore" | "prediction";
 export type SortDir = "asc" | "desc";
 export type PredictionFilter = "all" | "fraud" | "normal";
+
+export type DashboardPanelId = "timeline" | "monitor" | "explain" | "drift";

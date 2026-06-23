@@ -6,6 +6,7 @@ type Props = {
   transactions: TransactionRecord[];
   selectedId: string | null;
   onSelect: (tx: TransactionRecord) => void;
+  expanded?: boolean;
 };
 
 function compare(a: TransactionRecord, b: TransactionRecord, key: SortKey, dir: SortDir) {
@@ -26,11 +27,11 @@ function compare(a: TransactionRecord, b: TransactionRecord, key: SortKey, dir: 
   }
 }
 
-export function TransactionMonitor({ transactions, selectedId, onSelect }: Props) {
+export function TransactionMonitor({ transactions, selectedId, onSelect, expanded = false }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<PredictionFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("timestamp");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -57,7 +58,7 @@ export function TransactionMonitor({ transactions, selectedId, onSelect }: Props
   const sortIndicator = (key: SortKey) => (sortKey === key ? (sortDir === "asc" ? " ↑" : " ↓") : "");
 
   return (
-    <section className="panel panel-fill">
+    <section className={`panel panel-fill ${expanded ? "panel-expanded" : ""}`}>
       <div className="panel-header">
         <div>
           <h2 className="panel-title">Live Transaction Monitor</h2>
@@ -139,9 +140,7 @@ export function TransactionMonitor({ transactions, selectedId, onSelect }: Props
                   <td className="mono">{formatAmount(t.amount)}</td>
                   <td className="mono">{formatPercent(t.fraudScore)}</td>
                   <td>
-                    <span className={`pill ${t.prediction === "Fraud" ? "pill-danger" : "pill-safe"}`}>
-                      {t.prediction}
-                    </span>
+                    <span className="pill pill-neutral">{t.prediction}</span>
                   </td>
                 </tr>
               ))

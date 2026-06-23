@@ -1,0 +1,21 @@
+FROM node:20-alpine AS build
+
+ARG VITE_FRAUD_API_URL=http://localhost:8000
+ARG VITE_STREAM_API_URL=http://localhost:8001
+
+WORKDIR /app
+COPY package.json ./
+RUN npm install
+
+COPY . .
+ENV VITE_FRAUD_API_URL=$VITE_FRAUD_API_URL
+ENV VITE_STREAM_API_URL=$VITE_STREAM_API_URL
+RUN npm run build
+
+FROM nginx:1.27-alpine
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

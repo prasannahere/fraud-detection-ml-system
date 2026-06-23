@@ -1,0 +1,10 @@
+{
+  "model_name": "xgboost_ieee_fraud",
+  "version": "v1",
+  "auc": 0.96,
+  "threshold": 0.82,
+  "features": 96,
+  "trained_on": "IEEE-CIS Fraud Detection",
+  "algorithm": "XGBoost",
+  "docker_tags": ["fraud-api:v1", "fraud-api:latest"]
+}

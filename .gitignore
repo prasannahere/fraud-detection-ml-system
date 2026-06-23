@@ -148,7 +148,6 @@ activemq-data/
 *.sage.py
 
 # Environments
-.env
 .envrc
 .venv
 env/
@@ -217,6 +216,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# Node.js
+node_modules/
 
 #Additional
 *.csv
@@ -233,3 +234,10 @@ outputs/
 /codes
 /sandbox
 /data
+/model
+
+fraud-api/model/xgb95_final.ubj
+fraud-api/model/*.ubj
+fraud-api/model/*.ubj
+fraud-api/model/*.pkl
+fraud-api/model/*.joblib

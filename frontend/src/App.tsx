@@ -31,8 +31,8 @@ import {
 type HealthState = "ok" | "degraded" | "offline" | "checking";
 
 const MAX_TRANSACTIONS = 500;
-const DRIFT_BATCH_SIZE = 50;
-const DRIFT_DEBOUNCE_MS = 3000;
+const DRIFT_TRIGGER_SIZE = 40;
+const DRIFT_BATCH_SIZE = 40;
 
 export default function App() {
   const [username, setUsername] = useState("admin");
@@ -46,6 +46,8 @@ export default function App() {
   const [threshold] = useState(FRAUD_THRESHOLD);
 
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
+  const transactionsRef = useRef<TransactionRecord[]>([]);
+  transactionsRef.current = transactions;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [explainData, setExplainData] = useState<ExplainData | null>(null);
   const [explainLoading, setExplainLoading] = useState(false);
@@ -53,11 +55,11 @@ export default function App() {
   const [driftLoading, setDriftLoading] = useState(false);
   const driftInFlightRef = useRef(false);
   const hasDriftDataRef = useRef(false);
-
   const [streaming, setStreaming] = useState(false);
-  const [scoreStream, setScoreStream] = useState(true);
   const [batchLoading, setBatchLoading] = useState(false);
   const [expandedPanel, setExpandedPanel] = useState<DashboardPanelId | null>(null);
+
+  const streamDriftCounterRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const selectedTx = useMemo(
@@ -115,12 +117,19 @@ export default function App() {
     [signedIn]
   );
 
-  const addTransaction = useCallback((record: TransactionRecord) => {
-    setTransactions((prev) => {
-      const next = [record, ...prev].slice(0, MAX_TRANSACTIONS);
-      return next;
-    });
-  }, []);
+  const addStreamTransaction = useCallback(
+    (record: TransactionRecord) => {
+      const next = [record, ...transactionsRef.current].slice(0, MAX_TRANSACTIONS);
+      transactionsRef.current = next;
+      setTransactions(next);
+
+      streamDriftCounterRef.current += 1;
+      if (streamDriftCounterRef.current < DRIFT_TRIGGER_SIZE) return;
+      streamDriftCounterRef.current = 0;
+      void refreshDrift(next.slice(0, DRIFT_BATCH_SIZE));
+    },
+    [refreshDrift]
+  );
 
   const loadExplain = useCallback(
     async (tx: TransactionRecord) => {
@@ -149,7 +158,7 @@ export default function App() {
 
   const scoreRow = useCallback(
     async (row: Record<string, unknown>) => {
-      if (!signedIn || !scoreStream) return null;
+      if (!signedIn) return null;
       try {
         const tx = toTransaction(row);
         if (tx.TransactionDT == null || tx.TransactionAmt == null) return null;
@@ -159,7 +168,7 @@ export default function App() {
         return null;
       }
     },
-    [signedIn, scoreStream, threshold]
+    [signedIn, threshold]
   );
 
   useEffect(() => {
@@ -167,14 +176,6 @@ export default function App() {
     const id = setInterval(refreshHealth, 20000);
     return () => clearInterval(id);
   }, [refreshHealth]);
-
-  useEffect(() => {
-    if (transactions.length === 0 || !signedIn) return;
-    const timer = window.setTimeout(() => {
-      refreshDrift(transactions);
-    }, DRIFT_DEBOUNCE_MS);
-    return () => window.clearTimeout(timer);
-  }, [transactions, signedIn, refreshDrift]);
 
   const handleLogin = async () => {
     setLoginError("");
@@ -197,6 +198,7 @@ export default function App() {
     setExplainData(null);
     setDriftData(null);
     hasDriftDataRef.current = false;
+    streamDriftCounterRef.current = 0;
   };
 
   const stopStream = () => {
@@ -223,7 +225,13 @@ export default function App() {
           timestampLabel: new Date(baseTs - idx * 1000).toLocaleString(),
         };
       });
-      setTransactions((prev) => [...scored, ...prev].slice(0, MAX_TRANSACTIONS));
+      setTransactions((prev) => {
+        const merged = [...scored, ...prev].slice(0, MAX_TRANSACTIONS);
+        transactionsRef.current = merged;
+        return merged;
+      });
+      streamDriftCounterRef.current = 0;
+      void refreshDrift(scored);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Batch load failed");
     } finally {
@@ -267,9 +275,9 @@ export default function App() {
     es.onmessage = async (event) => {
       try {
         const row = JSON.parse(event.data) as Record<string, unknown>;
-        if (!scoreStream || !signedIn) return;
+        if (!signedIn) return;
         const scored = await scoreRow(row);
-        if (scored) addTransaction(scored);
+        if (scored) addStreamTransaction(scored);
       } catch {
         /* ignore malformed events */
       }
@@ -290,13 +298,11 @@ export default function App() {
           signedIn={signedIn}
           username={username}
           streaming={streaming}
-          scoreStream={scoreStream}
           onLogout={handleLogout}
           onStartStream={startStream}
           onStopStream={stopStream}
           onLoadBatch={loadBatch}
           batchLoading={batchLoading}
-          onScoreStreamChange={setScoreStream}
         />
 
         <main className="main">

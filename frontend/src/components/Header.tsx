@@ -6,13 +6,11 @@ type Props = {
   signedIn: boolean;
   username: string;
   streaming: boolean;
-  scoreStream: boolean;
   onLogout: () => void;
   onStartStream: () => void;
   onStopStream: () => void;
   onLoadBatch: () => void;
   batchLoading: boolean;
-  onScoreStreamChange: (v: boolean) => void;
 };
 
 function StatusDot({ state, label }: { state: HealthState; label: string }) {
@@ -30,13 +28,11 @@ export function Header({
   signedIn,
   username,
   streaming,
-  scoreStream,
   onLogout,
   onStartStream,
   onStopStream,
   onLoadBatch,
   batchLoading,
-  onScoreStreamChange,
 }: Props) {
   return (
     <header className="header">
@@ -74,15 +70,6 @@ export function Header({
               Live
             </span>
           )}
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={scoreStream}
-              onChange={(e) => onScoreStreamChange(e.target.checked)}
-              disabled={!signedIn}
-            />
-            Auto-score
-          </label>
           <button
             className="btn btn-ghost btn-sm"
             type="button"

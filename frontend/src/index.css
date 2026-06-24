@@ -390,6 +390,33 @@ body {
   height: 320px;
 }
 
+.drift-chart-expanded {
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+
+.panel-drift.panel-expanded {
+  overflow: visible;
+}
+
+.drift-body-expanded {
+  overflow: visible;
+}
+
+.panel-overlay-stage .panel-drift.panel-expanded {
+  overflow: visible;
+}
+
+.panel-overlay-stage .panel-drift .drift-body-expanded {
+  padding-bottom: 32px;
+}
+
+.drift-table-expanded {
+  max-height: none;
+  overflow: visible;
+}
+
 .drift-table {
   max-height: 280px;
 }
@@ -471,6 +498,11 @@ body {
   overflow: auto;
   flex: 1;
   min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.panel-overlay-stage .panel-drift {
+  overflow: visible;
 }
 
 .panel-overlay-stage .panel,

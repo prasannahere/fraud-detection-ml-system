@@ -9,17 +9,24 @@ type Props = {
 };
 
 const CHART_HEIGHT_COMPACT = 320;
-const CHART_HEIGHT_EXPANDED = 420;
 const BAR_COLOR = "rgba(13, 13, 13, 0.55)";
+const BAR_ROW_HEIGHT = 44;
+
+function chartHeightForFeatures(count: number, expanded: boolean) {
+  if (count === 0) return expanded ? 420 : CHART_HEIGHT_COMPACT;
+  const padding = expanded ? 96 : 72;
+  const minHeight = expanded ? 420 : CHART_HEIGHT_COMPACT;
+  return Math.max(minHeight, count * BAR_ROW_HEIGHT + padding);
+}
 
 export function DriftMonitoring({ drift, loading, expanded = false }: Props) {
-  const chartHeight = expanded ? CHART_HEIGHT_EXPANDED : CHART_HEIGHT_COMPACT;
   const features = drift?.features ?? [];
+  const chartHeight = chartHeightForFeatures(features.length, expanded);
   const hasHighDrift = (drift?.high_drift_count ?? 0) > 0;
   const showInitialLoading = loading && features.length === 0;
 
   return (
-    <section className={`panel ${expanded ? "panel-expanded" : ""}`}>
+    <section className={`panel panel-drift ${expanded ? "panel-expanded" : ""}`}>
       <div className="panel-header">
         <div>
           <h2 className="panel-title">Feature Drift Monitoring</h2>
@@ -32,14 +39,14 @@ export function DriftMonitoring({ drift, loading, expanded = false }: Props) {
         )}
       </div>
 
-      <div className="panel-body">
+      <div className={`panel-body ${expanded ? "drift-body-expanded" : ""}`}>
         {showInitialLoading ? (
           <div className="empty-state">Computing feature drift across recent transactions…</div>
         ) : drift?.message ? (
           <div className="empty-state">{drift.message}</div>
         ) : features.length === 0 ? (
           <div className="empty-state">
-            Score at least one batch of transactions to populate drift monitoring.
+            Drift updates after every 40 scored transactions (live stream or load batch).
           </div>
         ) : (
           <>
@@ -51,7 +58,10 @@ export function DriftMonitoring({ drift, loading, expanded = false }: Props) {
               </div>
             )}
 
-            <div className="chart-body chart-body-compact drift-chart">
+            <div
+              className={`chart-body chart-body-compact drift-chart ${expanded ? "drift-chart-expanded" : ""}`}
+              style={{ height: chartHeight }}
+            >
               <Plot
                 data={[
                   {
@@ -83,7 +93,7 @@ export function DriftMonitoring({ drift, loading, expanded = false }: Props) {
               />
             </div>
 
-            <div className="table-scroll drift-table">
+            <div className={`table-scroll drift-table ${expanded ? "drift-table-expanded" : ""}`}>
               <table className="data-table data-table-compact">
                 <thead>
                   <tr>

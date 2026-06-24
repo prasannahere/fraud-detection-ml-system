@@ -219,13 +219,16 @@ def explain_fraud(
     assert _feature_columns is not None
 
     _, features, _ = _prepare_features(input_df)
-    prediction = predict_fraud(input_df, threshold=threshold)
+    scores = _model.predict_proba(features)[:, 1]
+    thresholds = load_thresholds()
+    threshold_used = threshold if threshold is not None else thresholds["default"]
+    score = float(scores[0])
     explanation = explain_prediction(_model, features, _feature_columns, top_k=top_k)
 
     return {
-        "fraud_probability": prediction["fraud_probability"],
-        "decision": prediction["decision"],
-        "threshold_used": prediction["threshold_used"],
+        "fraud_probability": score,
+        "decision": score_to_decision(score, threshold=threshold_used),
+        "threshold_used": threshold_used,
         **explanation,
     }
 

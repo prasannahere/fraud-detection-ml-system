@@ -222,10 +222,13 @@ node_modules/
 #Additional
 *.csv
 
-
 #Additional
 *.csv
 *.parquet
+
+# Committed demo stream data (CI + Cloud Run)
+!stream-service/data/
+!stream-service/data/sample_transactions.csv
 
 outputs/
 

@@ -44,6 +44,9 @@ class FraudPreprocessor:
 
         self._fit_base_encoding(train, test)
 
+        train = self._apply_base_encoding(train)
+        test = self._apply_base_encoding(test)
+
         train, test = self._apply_feature_engineering(train, test, fit=True)
         self.feature_columns = select_model_features(train)
 
@@ -142,7 +145,7 @@ def _fit_label_map(train_series: pd.Series, test_series: pd.Series) -> dict[Any,
 
 def _apply_label_map(series: pd.Series, mapping: dict[Any, int]) -> pd.Series:
     unknown_code = max(mapping.values(), default=-1) + 1
-    mapped = series.map(mapping)
+    mapped = series.astype("object").map(mapping)
     return mapped.fillna(unknown_code).astype(np.int32)
 
 

@@ -107,6 +107,28 @@ def _fit_base_encoding(pre, train_df, test_df):
             )
 
 
+def _apply_label_map(series, mapping):
+    unknown_code = max(mapping.values(), default=-1) + 1
+    mapped = series.astype("object").map(mapping)
+    return mapped.fillna(unknown_code).astype(np.int32)
+
+
+def _apply_base_encoding(pre, df):
+    """Cell 17 — apply fitted label maps and numeric min shifts."""
+    out = df.copy()
+    for col in out.columns:
+        if col in pre.label_maps:
+            out[col] = _apply_label_map(out[col], pre.label_maps[col])
+        elif col in pre.numeric_mins:
+            out[col] = out[col].astype(np.float32) - np.float32(pre.numeric_mins[col])
+            out[col] = out[col].fillna(-1)
+        elif col not in ("TransactionDT", "TransactionAmt") and pd.api.types.is_numeric_dtype(
+            out[col]
+        ):
+            out[col] = out[col].fillna(-1)
+    return out
+
+
 def _add_feature_frames(train_df, test_df, train_feats, test_feats):
     if train_feats:
         train_df = pd.concat(
@@ -281,6 +303,9 @@ def fit_preprocessor_from_notebook_pipeline():
 
     print("Fitting base encoders (cell 17)...")
     _fit_base_encoding(pre, train_raw, test_raw)
+
+    train_raw = _apply_base_encoding(pre, train_raw)
+    test_raw = _apply_base_encoding(pre, test_raw)
 
     print("Fitting feature engineering maps (cell 22)...")
     train_fe, test_fe = _apply_feature_engineering(pre, train_raw, test_raw)

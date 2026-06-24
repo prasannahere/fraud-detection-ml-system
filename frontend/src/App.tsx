@@ -37,8 +37,8 @@ const STREAM_RECONNECT_BASE_MS = 1000;
 const STREAM_RECONNECT_MAX_MS = 30000;
 
 export default function App() {
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin");
+  const [username, setUsername] = useState("prasanna");
+  const [password, setPassword] = useState("");
   const [signedIn, setSignedIn] = useState(!!getToken());
   const [error, setError] = useState("");
   const [loginError, setLoginError] = useState("");

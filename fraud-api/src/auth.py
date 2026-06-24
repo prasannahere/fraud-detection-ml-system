@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
-from src.config import AUTH_PASSWORD, AUTH_USERNAME, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
+from src.config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET, load_auth_users
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -20,7 +20,8 @@ def create_access_token(subject: str) -> str:
 
 
 def verify_credentials(username: str, password: str) -> bool:
-    return username == AUTH_USERNAME and password == AUTH_PASSWORD
+    users = load_auth_users()
+    return users.get(username) == password
 
 
 def verify_jwt(

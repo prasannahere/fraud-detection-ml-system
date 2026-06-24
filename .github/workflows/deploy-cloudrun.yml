@@ -71,8 +71,7 @@ jobs:
         env:
           IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/fraud-api:${{ github.sha }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          FRAUD_AUTH_PASSWORD: ${{ secrets.FRAUD_AUTH_PASSWORD }}
-          FRAUD_AUTH_USERNAME: ${{ secrets.FRAUD_AUTH_USERNAME }}
+          FRAUD_AUTH_USERS: ${{ secrets.FRAUD_AUTH_USERS }}
         run: |
           gcloud run deploy fraud-api \
             --image "$IMAGE" \
@@ -80,7 +79,7 @@ jobs:
             --platform managed \
             --port 8000 \
             --allow-unauthenticated \
-            --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,FRAUD_AUTH_USERNAME=${FRAUD_AUTH_USERNAME:-admin},JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_PASSWORD=${FRAUD_AUTH_PASSWORD}" \
+            --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS}" \
             --quiet
 
       - name: Deploy stream-service to Cloud Run

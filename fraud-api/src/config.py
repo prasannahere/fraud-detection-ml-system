@@ -33,6 +33,27 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
 AUTH_USERNAME = os.getenv("FRAUD_AUTH_USERNAME", "admin")
 AUTH_PASSWORD = os.getenv("FRAUD_AUTH_PASSWORD", "admin")
+
+
+def load_auth_users() -> dict[str, str]:
+    """Parse FRAUD_AUTH_USERS as 'user:pass|user:pass' or fall back to single-user env vars."""
+    users_raw = os.getenv("FRAUD_AUTH_USERS", "").strip()
+    if users_raw:
+        users: dict[str, str] = {}
+        for part in users_raw.replace(",", "|").split("|"):
+            part = part.strip()
+            if ":" not in part:
+                continue
+            username, password = part.split(":", 1)
+            username = username.strip()
+            password = password.strip()
+            if username and password:
+                users[username] = password
+        if users:
+            return users
+    return {AUTH_USERNAME: AUTH_PASSWORD}
+
+
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v1")
 ENABLE_AUDIT = os.getenv("ENABLE_AUDIT", "false").lower() == "true"
 GCP_PROJECT = os.getenv("GCP_PROJECT", "")

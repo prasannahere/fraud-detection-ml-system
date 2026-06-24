@@ -14,6 +14,8 @@ services:
       - "8001:8000"
     env_file:
       - .env
+    environment:
+      FRAUD_API_URL: http://fraud-api:8000
 
   frontend:
     build:

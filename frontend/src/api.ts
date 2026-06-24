@@ -3,6 +3,9 @@ import type { ExplainData, FeatureDriftData } from "./types";
 const FRAUD_API = import.meta.env.VITE_FRAUD_API_URL || "http://localhost:8000";
 const STREAM_API = import.meta.env.VITE_STREAM_API_URL || "http://localhost:8001";
 
+const HEALTH_RETRIES = 3;
+const HEALTH_RETRY_DELAY_MS = 500;
+
 let token = sessionStorage.getItem("fraud_jwt") || "";
 
 export function setToken(value: string) {
@@ -13,6 +16,23 @@ export function setToken(value: string) {
 
 export function getToken() {
   return token;
+}
+
+async function fetchWithRetry(url: string, retries = HEALTH_RETRIES): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const resp = await fetch(url);
+      if (resp.ok) return resp;
+      lastError = new Error(`HTTP ${resp.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < retries - 1) {
+      await new Promise((resolve) => setTimeout(resolve, HEALTH_RETRY_DELAY_MS * (attempt + 1)));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Health check failed");
 }
 
 async function fraudFetch<T>(path: string, options: RequestInit = {}, auth = true) {
@@ -88,12 +108,12 @@ export async function driftMonitor(transactions: Record<string, unknown>[]) {
 }
 
 export async function healthFraud() {
-  const resp = await fetch(`${FRAUD_API}/health`);
-  return resp.json();
+  const resp = await fetchWithRetry(`${FRAUD_API}/health`);
+  return resp.json() as Promise<{ status: string }>;
 }
 
 export async function healthStream() {
-  const resp = await fetch(`${STREAM_API}/health`);
+  const resp = await fetchWithRetry(`${STREAM_API}/health`);
   return resp.json();
 }
 

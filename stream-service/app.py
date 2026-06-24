@@ -15,6 +15,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from scoring import close_client, score_transaction, scoring_enabled
+
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 DATA_FILE_PATH = os.getenv("DATA_FILE_PATH", "/data/sample_transactions.csv")
@@ -89,12 +91,18 @@ def startup() -> None:
     _df = _load_dataset()
 
 
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    await close_client()
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "rows": 0 if _df is None else len(_df),
         "data_file": DATA_FILE_PATH,
+        "server_side_scoring": scoring_enabled(),
     }
 
 
@@ -133,7 +141,10 @@ async def stream_rows() -> StreamingResponse:
     async def event_generator():
         while True:
             row = get_next_row()
-            yield f"data: {json.dumps(row)}\n\n"
+            payload = await score_transaction(row)
+            if payload is None:
+                payload = row
+            yield f"data: {json.dumps(payload)}\n\n"
             await asyncio.sleep(STREAM_INTERVAL_SECONDS)
 
     return StreamingResponse(

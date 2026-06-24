@@ -33,6 +33,8 @@ type HealthState = "ok" | "degraded" | "offline" | "checking";
 const MAX_TRANSACTIONS = 500;
 const DRIFT_TRIGGER_SIZE = 40;
 const DRIFT_BATCH_SIZE = 40;
+const STREAM_RECONNECT_BASE_MS = 1000;
+const STREAM_RECONNECT_MAX_MS = 30000;
 
 export default function App() {
   const [username, setUsername] = useState("admin");
@@ -61,6 +63,11 @@ export default function App() {
 
   const streamDriftCounterRef = useRef(0);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const streamStopRequestedRef = useRef(false);
+  const streamReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamReconnectAttemptRef = useRef(0);
+  const signedInRef = useRef(signedIn);
+  signedInRef.current = signedIn;
 
   const selectedTx = useMemo(
     () => transactions.find((t) => t.id === selectedId) ?? null,
@@ -82,16 +89,17 @@ export default function App() {
   }, [transactions]);
 
   const refreshHealth = useCallback(async () => {
-    try {
-      const fh = await healthFraud();
-      setFraudHealth(fh.status === "ok" ? "ok" : "degraded");
-    } catch {
+    const [fraudResult, streamResult] = await Promise.allSettled([healthFraud(), healthStream()]);
+
+    if (fraudResult.status === "fulfilled") {
+      setFraudHealth(fraudResult.value.status === "ok" ? "ok" : "degraded");
+    } else {
       setFraudHealth("offline");
     }
-    try {
-      await healthStream();
+
+    if (streamResult.status === "fulfilled") {
       setStreamHealth("ok");
-    } catch {
+    } else {
       setStreamHealth("offline");
     }
   }, []);
@@ -158,7 +166,7 @@ export default function App() {
 
   const scoreRow = useCallback(
     async (row: Record<string, unknown>) => {
-      if (!signedIn) return null;
+      if (!signedInRef.current) return null;
       try {
         const tx = toTransaction(row);
         if (tx.TransactionDT == null || tx.TransactionAmt == null) return null;
@@ -168,7 +176,33 @@ export default function App() {
         return null;
       }
     },
-    [signedIn, threshold]
+    [threshold]
+  );
+
+  const handleStreamMessage = useCallback(
+    async (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(event.data) as Record<string, unknown>;
+        if (!signedInRef.current) return;
+
+        if (payload.scored === true && payload.transaction && payload.fraud_probability != null) {
+          const record = buildTransactionRecord(
+            payload.transaction as Record<string, unknown>,
+            payload.fraud_probability as number,
+            "stream",
+            threshold
+          );
+          addStreamTransaction(record);
+          return;
+        }
+
+        const scored = await scoreRow(payload);
+        if (scored) addStreamTransaction(scored);
+      } catch {
+        /* ignore malformed events */
+      }
+    },
+    [addStreamTransaction, scoreRow, threshold]
   );
 
   useEffect(() => {
@@ -201,11 +235,65 @@ export default function App() {
     streamDriftCounterRef.current = 0;
   };
 
-  const stopStream = () => {
+  const stopStream = useCallback((userInitiated = true) => {
+    if (userInitiated) {
+      streamStopRequestedRef.current = true;
+    }
+    if (streamReconnectTimerRef.current) {
+      clearTimeout(streamReconnectTimerRef.current);
+      streamReconnectTimerRef.current = null;
+    }
     eventSourceRef.current?.close();
     eventSourceRef.current = null;
-    setStreaming(false);
-  };
+    if (userInitiated) {
+      setStreaming(false);
+    }
+  }, []);
+
+  const connectStream = useCallback(() => {
+    const es = new EventSource(streamUrl());
+    eventSourceRef.current = es;
+
+    es.onopen = () => {
+      streamReconnectAttemptRef.current = 0;
+      setError((prev) => (prev.startsWith("Stream reconnecting") ? "" : prev));
+    };
+
+    es.onmessage = (event) => {
+      void handleStreamMessage(event);
+    };
+
+    es.onerror = () => {
+      es.close();
+      eventSourceRef.current = null;
+
+      if (streamStopRequestedRef.current) return;
+
+      const attempt = streamReconnectAttemptRef.current;
+      streamReconnectAttemptRef.current += 1;
+      const delay = Math.min(STREAM_RECONNECT_BASE_MS * 2 ** attempt, STREAM_RECONNECT_MAX_MS);
+
+      setError(`Stream reconnecting in ${Math.round(delay / 1000)}s…`);
+
+      streamReconnectTimerRef.current = setTimeout(() => {
+        if (!streamStopRequestedRef.current) {
+          connectStream();
+        }
+      }, delay);
+    };
+  }, [handleStreamMessage]);
+
+  const startStream = useCallback(() => {
+    stopStream(true);
+    streamStopRequestedRef.current = false;
+    streamReconnectAttemptRef.current = 0;
+    setStreaming(true);
+    connectStream();
+  }, [connectStream, stopStream]);
+
+  useEffect(() => {
+    return () => stopStream(true);
+  }, [stopStream]);
 
   const loadBatch = async () => {
     if (!signedIn) return;
@@ -266,29 +354,6 @@ export default function App() {
     }
   };
 
-  const startStream = () => {
-    stopStream();
-    setStreaming(true);
-    const es = new EventSource(streamUrl());
-    eventSourceRef.current = es;
-
-    es.onmessage = async (event) => {
-      try {
-        const row = JSON.parse(event.data) as Record<string, unknown>;
-        if (!signedIn) return;
-        const scored = await scoreRow(row);
-        if (scored) addStreamTransaction(scored);
-      } catch {
-        /* ignore malformed events */
-      }
-    };
-
-    es.onerror = () => {
-      setError("Stream connection lost. Verify stream-service is running on port 8001.");
-      stopStream();
-    };
-  };
-
   return (
     <div className="app">
       <div className={signedIn ? "dashboard-shell" : "dashboard-shell dashboard-shell--locked"}>
@@ -300,7 +365,7 @@ export default function App() {
           streaming={streaming}
           onLogout={handleLogout}
           onStartStream={startStream}
-          onStopStream={stopStream}
+          onStopStream={() => stopStream(true)}
           onLoadBatch={loadBatch}
           batchLoading={batchLoading}
         />

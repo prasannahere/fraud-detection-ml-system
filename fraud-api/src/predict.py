@@ -105,6 +105,11 @@ def _load_artifacts() -> None:
         )
 
 
+def warmup_artifacts() -> None:
+    """Load model artifacts eagerly at application startup."""
+    _load_artifacts()
+
+
 def artifacts_status() -> dict[str, Any]:
     from src.config import FEATURES_CANDIDATES
 

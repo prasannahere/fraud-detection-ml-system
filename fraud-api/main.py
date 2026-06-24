@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
@@ -24,6 +25,7 @@ from src.predict import (
     get_model_info,
     predict_fraud,
     predict_fraud_batch,
+    warmup_artifacts,
 )
 from src.schemas import (
     BatchPredictionResponse,
@@ -43,10 +45,22 @@ from src.schemas import (
 configure_logging()
 logger = logging.getLogger("fraud_api")
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    try:
+        warmup_artifacts()
+        logger.info("Model artifacts loaded at startup")
+    except Exception as exc:
+        logger.error("Failed to load model artifacts at startup: %s", exc)
+    yield
+
+
 app = FastAPI(
     title="Fraud Detection API",
     version=MODEL_VERSION,
     description="Production-grade IEEE-CIS fraud scoring service",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

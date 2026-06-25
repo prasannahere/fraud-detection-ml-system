@@ -48,7 +48,7 @@ export function Header({
           </svg>
         </div>
         <div>
-          <div className="header-title">Sentinel</div>
+          <div className="header-title">IEEE - CIS</div>
           <div className="header-subtitle">Fraud monitoring</div>
         </div>
       </div>

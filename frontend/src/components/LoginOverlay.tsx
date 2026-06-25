@@ -48,7 +48,7 @@ export function LoginOverlay({
           </div>
         </div>
         <h2 id="login-title" className="login-overlay-title">
-          Sign in to Sentinel
+          Sign in to IEEE - CIS
         </h2>
         <p className="login-overlay-subtitle">
           Use your credentials to score transactions and view SHAP explanations.

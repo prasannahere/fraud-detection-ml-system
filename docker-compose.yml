@@ -16,6 +16,9 @@ services:
       - .env
     environment:
       FRAUD_API_URL: http://fraud-api:8000
+      DATA_FILE_PATH: data/sample_transactions.csv
+    volumes:
+      - ./stream-service/data:/app/data:ro
 
   frontend:
     build:

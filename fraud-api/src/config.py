@@ -12,21 +12,12 @@ from dotenv import load_dotenv
 REPO_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(REPO_ROOT / ".env")
 
-MODEL_DIR = Path(__file__).resolve().parent.parent / "model"
-
-MODEL_UBJ = MODEL_DIR / "xgb95_final.ubj"
-# Kaggle notebook saves xgb95_final_features.pkl (cell 37).
-# Local xgb_train.py saves features.pkl — do not mix both in model/.
-MODEL_FEATURES_PKL = MODEL_DIR / "xgb95_final_features.pkl"
-FEATURES_CANDIDATES = [
-    MODEL_FEATURES_PKL,
-    MODEL_DIR / "features.pkl",
-    MODEL_DIR / "feature_columns.pkl",
-]
-ENCODERS_PKL = MODEL_DIR / "encoders.pkl"
-THRESHOLD_JSON = MODEL_DIR / "threshold.json"
-METADATA_JSON = MODEL_DIR / "metadata.json"
-TRAINING_STATS_PKL = MODEL_DIR / "training_stats.pkl"
+MODEL_PATH = Path(os.getenv("MODEL_PATH", "model/xgb95_final.ubj"))
+ENCODERS_PATH = Path(os.getenv("ENCODERS_PATH", "model/encoders.pkl"))
+TRAINING_STATS_PATH = Path(os.getenv("TRAINING_STATS_PATH", "model/training_stats.pkl"))
+METADATA_PATH = Path(os.getenv("METADATA_PATH", "model/metadata.json"))
+THRESHOLD_PATH = Path(os.getenv("THRESHOLD_PATH", "model/threshold.json"))
+FEATURES_PATH = Path(os.getenv("FEATURES_PATH", "model/xgb95_final_features.pkl"))
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-change-me-in-production")
 JWT_ALGORITHM = "HS256"
@@ -64,8 +55,8 @@ BIGQUERY_TABLE = os.getenv("BIGQUERY_TABLE", "prediction_audit")
 @lru_cache(maxsize=1)
 def load_thresholds() -> dict[str, float]:
     defaults = {"block": 0.85, "review": 0.60, "default": 0.82}
-    if THRESHOLD_JSON.exists():
-        with THRESHOLD_JSON.open() as f:
+    if THRESHOLD_PATH.exists():
+        with THRESHOLD_PATH.open() as f:
             loaded = json.load(f)
         defaults.update({k: float(v) for k, v in loaded.items()})
     return defaults
@@ -80,18 +71,22 @@ def load_metadata() -> dict:
         "threshold": load_thresholds()["default"],
         "features": None,
     }
-    if METADATA_JSON.exists():
-        with METADATA_JSON.open() as f:
+    if METADATA_PATH.exists():
+        with METADATA_PATH.open() as f:
             loaded = json.load(f)
         defaults.update(loaded)
     return defaults
 
 
 def resolve_features_path() -> Path:
-    for path in FEATURES_CANDIDATES:
-        if path.exists():
-            return path
+    if FEATURES_PATH.exists():
+        return FEATURES_PATH
+    model_dir = FEATURES_PATH.parent
+    for name in ("features.pkl", "feature_columns.pkl"):
+        candidate = model_dir / name
+        if candidate.exists():
+            return candidate
     raise FileNotFoundError(
         "Missing features artifact. Expected one of: "
-        + ", ".join(str(p) for p in FEATURES_CANDIDATES)
+        f"{FEATURES_PATH}, {model_dir / 'features.pkl'}, {model_dir / 'feature_columns.pkl'}"
     )

@@ -11,9 +11,9 @@ import pandas as pd
 import xgboost as xgb
 
 from src.config import (
-    ENCODERS_PKL,
-    MODEL_DIR,
-    MODEL_UBJ,
+    ENCODERS_PATH,
+    FEATURES_PATH,
+    MODEL_PATH,
     MODEL_VERSION,
     load_metadata,
     load_thresholds,
@@ -42,12 +42,12 @@ class FeatureValidationError(ValueError):
 
 
 def _resolve_model_path() -> Path:
-    legacy = MODEL_DIR / "fraud_model.pkl"
-    if MODEL_UBJ.exists():
-        return MODEL_UBJ
+    if MODEL_PATH.exists():
+        return MODEL_PATH
+    legacy = MODEL_PATH.parent / "fraud_model.pkl"
     if legacy.exists():
         return legacy
-    raise ArtifactError(f"Missing model artifact: {MODEL_UBJ}")
+    raise ArtifactError(f"Missing model artifact: {MODEL_PATH}")
 
 
 def _load_model(model_path: Path):
@@ -81,9 +81,9 @@ def _load_artifacts() -> None:
     if _model is not None:
         return
 
-    if not ENCODERS_PKL.exists():
+    if not ENCODERS_PATH.exists():
         raise ArtifactError(
-            f"Missing preprocessing artifact: {ENCODERS_PKL}. "
+            f"Missing preprocessing artifact: {ENCODERS_PATH}. "
             "Run notebooks/kaggle_export_encoders_standalone.py on Kaggle after training."
         )
 
@@ -91,7 +91,7 @@ def _load_artifacts() -> None:
     features_path = resolve_features_path()
 
     _model = _load_model(model_path)
-    _preprocessor = FraudPreprocessor.load(ENCODERS_PKL)
+    _preprocessor = FraudPreprocessor.load(ENCODERS_PATH)
     _feature_columns = joblib.load(features_path)
     _feature_alignment = _validate_feature_alignment()
 
@@ -111,12 +111,13 @@ def warmup_artifacts() -> None:
 
 
 def artifacts_status() -> dict[str, Any]:
-    from src.config import FEATURES_CANDIDATES
-
-    features_exist = any(path.exists() for path in FEATURES_CANDIDATES)
+    model_dir = MODEL_PATH.parent
+    features_exist = FEATURES_PATH.exists() or any(
+        (model_dir / name).exists() for name in ("features.pkl", "feature_columns.pkl")
+    )
     base = {
-        "model_loaded": MODEL_UBJ.exists() or (MODEL_DIR / "fraud_model.pkl").exists(),
-        "encoders_loaded": ENCODERS_PKL.exists(),
+        "model_loaded": MODEL_PATH.exists() or (model_dir / "fraud_model.pkl").exists(),
+        "encoders_loaded": ENCODERS_PATH.exists(),
         "features_loaded": features_exist,
         "features_aligned": False,
         "model_feature_count": None,

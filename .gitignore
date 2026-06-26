@@ -240,8 +240,8 @@ outputs/
 /data
 /model
 
-fraud-api/model/xgb95_final.ubj
-fraud-api/model/*.ubj
-fraud-api/model/*.ubj
-fraud-api/model/*.pkl
-fraud-api/model/*.joblib
+# Model artifacts (loaded from GCS in production; keep locally for dev)
+fraud-api/model/*
+!fraud-api/model/.gitkeep
+!fraud-api/model/metadata.json
+!fraud-api/model/threshold.json

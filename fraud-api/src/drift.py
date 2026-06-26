@@ -10,7 +10,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from src.config import TRAINING_STATS_PKL
+from src.config import TRAINING_STATS_PATH
 
 MONITORED_FEATURES = [
     "TransactionAmt",
@@ -36,13 +36,13 @@ def _finite_float(value: float, default: float = 0.0) -> float:
 
 
 def load_training_stats() -> dict[str, dict[str, float]] | None:
-    if not TRAINING_STATS_PKL.exists():
+    if not TRAINING_STATS_PATH.exists():
         return None
-    return joblib.load(TRAINING_STATS_PKL)
+    return joblib.load(TRAINING_STATS_PATH)
 
 
 def save_training_stats(df: pd.DataFrame, path: Path | None = None) -> None:
-    target = path or TRAINING_STATS_PKL
+    target = path or TRAINING_STATS_PATH
     numeric = df.select_dtypes(include=[np.number])
     stats = {
         col: {

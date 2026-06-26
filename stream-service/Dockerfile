@@ -6,9 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py scoring.py .
-COPY data/sample_transactions.csv /data/sample_transactions.csv
 
-ENV DATA_FILE_PATH=/data/sample_transactions.csv
 ENV STREAM_INTERVAL_SECONDS=1
 
 EXPOSE 8000

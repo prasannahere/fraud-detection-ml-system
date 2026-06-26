@@ -19,7 +19,7 @@ from scoring import close_client, score_transaction, scoring_enabled
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-DATA_FILE_PATH = os.getenv("DATA_FILE_PATH", "/data/sample_transactions.csv")
+DATA_FILE_PATH = os.getenv("DATA_FILE_PATH", "data/sample_transactions.csv")
 STREAM_INTERVAL_SECONDS = float(os.getenv("STREAM_INTERVAL_SECONDS", "1"))
 
 app = FastAPI(title="Transaction Stream Service", version="1.0.0")

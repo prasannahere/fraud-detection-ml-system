@@ -19,6 +19,7 @@ env:
   GCP_REGION: us-central1
   AR_REPOSITORY: fraud-detection-repo
   AR_HOST: us-central1-docker.pkg.dev
+  GCS_ARTIFACTS_BUCKET: fraud-detection-500117-artifacts
 
 jobs:
   deploy-backends:
@@ -77,12 +78,15 @@ jobs:
             --image "$IMAGE" \
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
+            --execution-environment gen2 \
             --port 8000 \
             --memory 2Gi \
             --cpu 2 \
             --timeout 900 \
             --allow-unauthenticated \
-            --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS}" \
+            --add-volume name=gcs-artifacts,type=cloud-storage,bucket=${{ env.GCS_ARTIFACTS_BUCKET }} \
+            --add-volume-mount volume=gcs-artifacts,mount-path=/mnt/gcs \
+            --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS},MODEL_PATH=/mnt/gcs/models/xgb95/xgb95_final.ubj,ENCODERS_PATH=/mnt/gcs/models/xgb95/encoders.pkl,TRAINING_STATS_PATH=/mnt/gcs/models/xgb95/training_stats.pkl,METADATA_PATH=/mnt/gcs/models/xgb95/metadata.json,THRESHOLD_PATH=/mnt/gcs/models/xgb95/threshold.json,FEATURES_PATH=/mnt/gcs/models/xgb95/xgb95_final_features.pkl" \
             --quiet
 
       - name: Deploy stream-service to Cloud Run
@@ -100,10 +104,13 @@ jobs:
             --image "$IMAGE" \
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
+            --execution-environment gen2 \
             --port 8000 \
             --timeout 3600 \
             --allow-unauthenticated \
-            --set-env-vars "DATA_FILE_PATH=/data/sample_transactions.csv,STREAM_INTERVAL_SECONDS=1,FRAUD_API_URL=${FRAUD_API_URL},FRAUD_AUTH_USERNAME=${FRAUD_AUTH_USERNAME:-admin},FRAUD_AUTH_PASSWORD=${FRAUD_AUTH_PASSWORD},FRAUD_THRESHOLD=0.8" \
+            --add-volume name=gcs-artifacts,type=cloud-storage,bucket=${{ env.GCS_ARTIFACTS_BUCKET }} \
+            --add-volume-mount volume=gcs-artifacts,mount-path=/mnt/gcs \
+            --set-env-vars "DATA_FILE_PATH=/mnt/gcs/data/sample_transactions.csv,STREAM_INTERVAL_SECONDS=1,FRAUD_API_URL=${FRAUD_API_URL},FRAUD_AUTH_USERNAME=${FRAUD_AUTH_USERNAME:-admin},FRAUD_AUTH_PASSWORD=${FRAUD_AUTH_PASSWORD},FRAUD_THRESHOLD=0.8" \
             --quiet
 
   deploy-frontend:

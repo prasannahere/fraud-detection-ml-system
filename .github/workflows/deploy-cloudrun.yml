@@ -78,6 +78,9 @@ jobs:
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
             --port 8000 \
+            --memory 2Gi \
+            --cpu 2 \
+            --timeout 900 \
             --allow-unauthenticated \
             --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS}" \
             --quiet
@@ -103,53 +106,9 @@ jobs:
             --set-env-vars "DATA_FILE_PATH=/data/sample_transactions.csv,STREAM_INTERVAL_SECONDS=1,FRAUD_API_URL=${FRAUD_API_URL},FRAUD_AUTH_USERNAME=${FRAUD_AUTH_USERNAME:-admin},FRAUD_AUTH_PASSWORD=${FRAUD_AUTH_PASSWORD},FRAUD_THRESHOLD=0.8" \
             --quiet
 
-  warmup-backends:
-    name: Warmup backend health checks
-    needs: deploy-backends
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Wait for backend health endpoints
-        env:
-          GCP_REGION: ${{ env.GCP_REGION }}
-        run: |
-          FRAUD_API_URL=$(gcloud run services describe fraud-api \
-            --region "$GCP_REGION" \
-            --format 'value(status.url)')
-          STREAM_API_URL=$(gcloud run services describe stream-service \
-            --region "$GCP_REGION" \
-            --format 'value(status.url)')
-
-          warmup() {
-            local base_url="$1"
-            local name="$2"
-            for attempt in $(seq 1 30); do
-              if curl -sf "${base_url}/health" > /dev/null; then
-                echo "${name} healthy after ${attempt} attempt(s)"
-                return 0
-              fi
-              echo "Waiting for ${name}... (${attempt}/30)"
-              sleep 5
-            done
-            echo "ERROR: ${name} failed warmup"
-            exit 1
-          }
-
-          warmup "$FRAUD_API_URL" "fraud-api"
-          warmup "$STREAM_API_URL" "stream-service"
-
   deploy-frontend:
     name: Deploy frontend
-    needs: warmup-backends
+    needs: deploy-backends
     runs-on: ubuntu-latest
 
     steps:

@@ -49,8 +49,9 @@ docker compose -f infra/docker-compose.yml up --build
    docker push us-central1-docker.pkg.dev/PROJECT/REPO/training:latest
    ```
 2. Create a **Custom training** job in Vertex AI using that image.
-3. Set output to GCS (`AIP_MODEL_DIR` / bucket mount) under `models/xgb95/`.
-4. Optionally compile and upload pipeline spec:
+3. Set **Base output directory** to `gs://fraud-detection-500117-artifacts/models/xgb95/` (Vertex sets `AIP_MODEL_DIR`; the training script writes there automatically).
+4. Leave container **arguments empty** so the image runs with GCS data defaults (do not pass `--help` or `--output-dir /outputs/model`).
+5. Optionally compile and upload pipeline spec:
    ```bash
    docker compose -f infra/docker-compose.yml --profile jobs run --rm pipelines compile-and-upload
    ```

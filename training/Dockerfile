@@ -17,4 +17,3 @@ LABEL org.opencontainers.image.title="fraud-training" \
       org.opencontainers.image.description="XGBoost training job for fraud detection"
 
 ENTRYPOINT ["python", "training/xgb_train.py"]
-CMD ["--help"]

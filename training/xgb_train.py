@@ -35,10 +35,12 @@ def default_data_path(filename: str) -> Path:
     return Path(f"/gcs/{GCS_DATA_BUCKET}/{GCS_DATA_PREFIX}/{filename}")
 
 
-def default_output_dir() -> Path:
-    """Vertex AI sets AIP_MODEL_DIR; fall back to local API model dir."""
+def resolve_output_dir(cli_output_dir: Path | None) -> Path:
+    """Prefer Vertex AIP_MODEL_DIR, then --output-dir, then local API model dir."""
     if env := os.environ.get("AIP_MODEL_DIR"):
         return Path(env)
+    if cli_output_dir is not None:
+        return cli_output_dir
     return ROOT / "app" / "api" / "model"
 
 
@@ -69,7 +71,7 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         default=None,
-        help="Artifact directory (defaults to AIP_MODEL_DIR or app/api/model)",
+        help="Artifact directory when AIP_MODEL_DIR is unset (local/docker-compose)",
     )
     parser.add_argument(
         "--model-version",
@@ -125,7 +127,7 @@ def write_json(path: Path, payload: dict) -> None:
 
 
 def train_and_export(args: argparse.Namespace) -> None:
-    output_dir = args.output_dir or default_output_dir()
+    output_dir = resolve_output_dir(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     x_train, y_train, x_test = load_ieee_data(

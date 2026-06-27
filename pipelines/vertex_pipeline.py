@@ -18,7 +18,9 @@ DEFAULT_INFRA_IMAGE = os.getenv(
     "us-central1-docker.pkg.dev/fraud-detection-500117/fraud-detection-repo/infra:latest",
 )
 GCS_ARTIFACTS_BUCKET = os.getenv("GCS_ARTIFACTS_BUCKET", "fraud-detection-500117-artifacts")
+GCS_DATA_PREFIX = os.getenv("GCS_DATA_PREFIX", "data/data")
 OUTPUT_PREFIX = os.getenv("OUTPUT_PREFIX", "models/xgb95")
+GCS_DATA_ROOT = f"/gcs/{GCS_ARTIFACTS_BUCKET}/{GCS_DATA_PREFIX}"
 
 
 def compile_pipeline(output_path: Path | None = None) -> Path:
@@ -37,13 +39,13 @@ def compile_pipeline(output_path: Path | None = None) -> Path:
                     "python",
                     "training/xgb_train.py",
                     "--train-transaction",
-                    "/data/train_transaction.csv",
+                    f"{GCS_DATA_ROOT}/train_transaction.csv",
                     "--train-identity",
-                    "/data/train_identity.csv",
+                    f"{GCS_DATA_ROOT}/train_identity.csv",
                     "--test-transaction",
-                    "/data/test_transaction.csv",
+                    f"{GCS_DATA_ROOT}/test_transaction.csv",
                     "--test-identity",
-                    "/data/test_identity.csv",
+                    f"{GCS_DATA_ROOT}/test_identity.csv",
                     "--output-dir",
                     "/outputs/model",
                 ],

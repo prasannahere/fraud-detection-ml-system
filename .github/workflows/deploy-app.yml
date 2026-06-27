@@ -52,7 +52,7 @@ jobs:
               - '.github/workflows/deploy-app.yml'
 
   deploy-api:
-    name: Deploy fraud-api
+    name: Deploy api
     needs: changes
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
@@ -70,9 +70,9 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
 
-      - name: Build and push fraud-api
+      - name: Build and push api
         env:
-          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/fraud-api:${{ github.sha }}
+          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/api:${{ github.sha }}
         run: |
           docker build \
             -f app/api/Dockerfile \
@@ -81,13 +81,13 @@ jobs:
             .
           docker push "$IMAGE"
 
-      - name: Deploy fraud-api to Cloud Run
+      - name: Deploy api to Cloud Run
         env:
-          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/fraud-api:${{ github.sha }}
+          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/api:${{ github.sha }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           FRAUD_AUTH_USERS: ${{ secrets.FRAUD_AUTH_USERS }}
         run: |
-          gcloud run deploy fraud-api \
+          gcloud run deploy api \
             --image "$IMAGE" \
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
@@ -103,7 +103,7 @@ jobs:
             --quiet
 
   deploy-stream:
-    name: Deploy stream-service
+    name: Deploy stream
     needs: changes
     if: needs.changes.outputs.stream == 'true' || needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
@@ -121,24 +121,24 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
 
-      - name: Build and push stream-service
+      - name: Build and push stream
         env:
-          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/stream-service:${{ github.sha }}
+          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/stream:${{ github.sha }}
         run: |
           docker build -f app/stream/Dockerfile -t "$IMAGE" app/stream
           docker push "$IMAGE"
 
-      - name: Deploy stream-service to Cloud Run
+      - name: Deploy stream to Cloud Run
         env:
-          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/stream-service:${{ github.sha }}
+          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/stream:${{ github.sha }}
           FRAUD_AUTH_PASSWORD: ${{ secrets.FRAUD_AUTH_PASSWORD }}
           FRAUD_AUTH_USERNAME: ${{ secrets.FRAUD_AUTH_USERNAME }}
         run: |
-          FRAUD_API_URL=$(gcloud run services describe fraud-api \
+          API_URL=$(gcloud run services describe api \
             --region "${{ env.GCP_REGION }}" \
             --format 'value(status.url)')
 
-          gcloud run deploy stream-service \
+          gcloud run deploy stream \
             --image "$IMAGE" \
             --region "${{ env.GCP_REGION }}" \
             --platform managed \
@@ -148,7 +148,7 @@ jobs:
             --allow-unauthenticated \
             --add-volume name=gcs-artifacts,type=cloud-storage,bucket=${{ env.GCS_ARTIFACTS_BUCKET }} \
             --add-volume-mount volume=gcs-artifacts,mount-path=/mnt/gcs \
-            --set-env-vars "DATA_FILE_PATH=/mnt/gcs/data/sample_transactions.csv,STREAM_INTERVAL_SECONDS=1,FRAUD_API_URL=${FRAUD_API_URL},FRAUD_AUTH_USERNAME=${FRAUD_AUTH_USERNAME:-admin},FRAUD_AUTH_PASSWORD=${FRAUD_AUTH_PASSWORD},FRAUD_THRESHOLD=0.8" \
+            --set-env-vars "DATA_FILE_PATH=/mnt/gcs/data/sample_transactions.csv,STREAM_INTERVAL_SECONDS=1,API_URL=${API_URL},FRAUD_AUTH_USERNAME=${FRAUD_AUTH_USERNAME:-admin},FRAUD_AUTH_PASSWORD=${FRAUD_AUTH_PASSWORD},FRAUD_THRESHOLD=0.8" \
             --quiet
 
   deploy-frontend:
@@ -178,11 +178,11 @@ jobs:
       - name: Resolve backend service URLs
         id: urls
         run: |
-          echo "fraud_api_url=$(gcloud run services describe fraud-api \
+          echo "api_url=$(gcloud run services describe api \
             --region "${{ env.GCP_REGION }}" \
             --format 'value(status.url)')" >> "$GITHUB_OUTPUT"
 
-          echo "stream_api_url=$(gcloud run services describe stream-service \
+          echo "stream_url=$(gcloud run services describe stream \
             --region "${{ env.GCP_REGION }}" \
             --format 'value(status.url)')" >> "$GITHUB_OUTPUT"
 
@@ -191,8 +191,8 @@ jobs:
           IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/frontend:${{ github.sha }}
         run: |
           docker build \
-            --build-arg VITE_FRAUD_API_URL="${{ steps.urls.outputs.fraud_api_url }}" \
-            --build-arg VITE_STREAM_API_URL="${{ steps.urls.outputs.stream_api_url }}" \
+            --build-arg VITE_API_URL="${{ steps.urls.outputs.api_url }}" \
+            --build-arg VITE_STREAM_API_URL="${{ steps.urls.outputs.stream_url }}" \
             -t "$IMAGE" \
             app/frontend
           docker push "$IMAGE"

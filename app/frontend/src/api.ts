@@ -1,6 +1,6 @@
 import type { ExplainData, FeatureDriftData } from "./types";
 
-const FRAUD_API = import.meta.env.VITE_FRAUD_API_URL || "http://localhost:8000";
+const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const STREAM_API = import.meta.env.VITE_STREAM_API_URL || "http://localhost:8001";
 
 const HEALTH_RETRIES = 3;
@@ -43,7 +43,7 @@ async function fraudFetch<T>(path: string, options: RequestInit = {}, auth = tru
   if (auth && token) headers.Authorization = `Bearer ${token}`;
 
   const started = performance.now();
-  const resp = await fetch(`${FRAUD_API}${path}`, { ...options, headers });
+  const resp = await fetch(`${API}${path}`, { ...options, headers });
   const latencyMs = Math.round(performance.now() - started);
 
   const data = (await resp.json().catch(() => ({}))) as T & { detail?: string };
@@ -108,7 +108,7 @@ export async function driftMonitor(transactions: Record<string, unknown>[]) {
 }
 
 export async function healthFraud() {
-  const resp = await fetchWithRetry(`${FRAUD_API}/health`);
+  const resp = await fetchWithRetry(`${API}/health`);
   return resp.json() as Promise<{ status: string }>;
 }
 
@@ -127,4 +127,4 @@ export async function fetchBatchSample(limit = 30) {
   return resp.json() as Promise<{ transactions: Record<string, unknown>[] }>;
 }
 
-export { FRAUD_API, STREAM_API };
+export { API, STREAM_API };

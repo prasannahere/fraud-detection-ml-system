@@ -17,7 +17,7 @@ COPY app/api/src/ src/
 
 EXPOSE 8000
 
-LABEL org.opencontainers.image.title="fraud-api" \
+LABEL org.opencontainers.image.title="api" \
       org.opencontainers.image.version="${MODEL_VERSION}"
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,4 +1,4 @@
-"""Server-side fraud scoring via fraud-api."""
+"""Server-side fraud scoring via api service."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from typing import Any
 
 import httpx
 
-logger = logging.getLogger("stream_service.scoring")
+logger = logging.getLogger("stream.scoring")
 
-FRAUD_API_URL = os.getenv("FRAUD_API_URL", "").rstrip("/")
+API_URL = os.getenv("API_URL", "").rstrip("/")
 FRAUD_AUTH_USERNAME = os.getenv("FRAUD_AUTH_USERNAME", "admin")
 FRAUD_AUTH_PASSWORD = os.getenv("FRAUD_AUTH_PASSWORD", "admin")
 FRAUD_THRESHOLD = float(os.getenv("FRAUD_THRESHOLD", "0.8"))
@@ -22,7 +22,7 @@ _token_expires_at = 0.0
 
 
 def scoring_enabled() -> bool:
-    return bool(FRAUD_API_URL)
+    return bool(API_URL)
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -47,7 +47,7 @@ async def _ensure_token() -> str:
 
     client = _get_client()
     resp = await client.post(
-        f"{FRAUD_API_URL}/auth/login",
+        f"{API_URL}/auth/login",
         json={"username": FRAUD_AUTH_USERNAME, "password": FRAUD_AUTH_PASSWORD},
     )
     resp.raise_for_status()
@@ -58,7 +58,7 @@ async def _ensure_token() -> str:
 
 
 async def score_transaction(row: dict[str, Any]) -> dict[str, Any] | None:
-    """Score a transaction via fraud-api. Returns None if scoring is disabled or fails."""
+    """Score a transaction via api. Returns None if scoring is disabled or fails."""
     if not scoring_enabled():
         return None
 
@@ -66,7 +66,7 @@ async def score_transaction(row: dict[str, Any]) -> dict[str, Any] | None:
         token = await _ensure_token()
         client = _get_client()
         resp = await client.post(
-            f"{FRAUD_API_URL}/predict?threshold={FRAUD_THRESHOLD}",
+            f"{API_URL}/predict?threshold={FRAUD_THRESHOLD}",
             json=row,
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -75,7 +75,7 @@ async def score_transaction(row: dict[str, Any]) -> dict[str, Any] | None:
             _token_expires_at = 0
             token = await _ensure_token()
             resp = await client.post(
-                f"{FRAUD_API_URL}/predict?threshold={FRAUD_THRESHOLD}",
+                f"{API_URL}/predict?threshold={FRAUD_THRESHOLD}",
                 json=row,
                 headers={"Authorization": f"Bearer {token}"},
             )

@@ -231,4 +231,4 @@ def drift_monitor(batch: BatchTransactionInput) -> FeatureDriftResponse:
 
 @app.get("/")
 def root() -> dict[str, str]:
-    return {"service": "fraud-api", "docs": "/docs", "health": "/health"}
+    return {"service": "api", "docs": "/docs", "health": "/health"}

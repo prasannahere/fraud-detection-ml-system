@@ -251,5 +251,5 @@ def get_model_info() -> dict[str, Any]:
         "features": status.get("model_feature_count") or metadata.get("features"),
         "artifacts_loaded": status["model_loaded"] and status["encoders_loaded"],
         "features_aligned": status.get("features_aligned", False),
-        "docker_tags": metadata.get("docker_tags", [f"fraud-api:{MODEL_VERSION}", "fraud-api:latest"]),
+        "docker_tags": metadata.get("docker_tags", [f"api:{MODEL_VERSION}", "api:latest"]),
     }

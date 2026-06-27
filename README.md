@@ -1,6 +1,6 @@
 # Fraud Detection ML System (GCP)
 
-Fraud detection system: **Vertex AI** trains and writes model artifacts to GCS; **Cloud Run** serves predictions via `fraud-api`; **GitHub Actions** deploys the app layer only when frontend, API, or stream code changes.
+Fraud detection system: **Vertex AI** trains and writes model artifacts to GCS; **Cloud Run** serves predictions via `api`; **GitHub Actions** deploys the app layer only when frontend, API, or stream code changes.
 
 ## Project layout
 
@@ -33,8 +33,8 @@ docker compose -f infra/docker-compose.yml up --build
 
 | Service | URL |
 |---------|-----|
-| fraud-api | http://localhost:8000/docs |
-| stream-service | http://localhost:8001 |
+| api | http://localhost:8000/docs |
+| stream | http://localhost:8001 |
 | frontend | http://localhost:3000 |
 
 Place trained artifacts in `app/api/model/` for local inference.
@@ -104,8 +104,8 @@ flowchart TB
 
     subgraph cloudrun [Cloud Run]
         FE[frontend]
-        API[fraud-api]
-        Stream[stream-service]
+        API[api]
+        Stream[stream]
     end
 
     Train --> Models
@@ -115,6 +115,6 @@ flowchart TB
     API --> Models
 ```
 
-**Serving:** frontend → fraud-api → GCS artifacts → predict (auth, SHAP, drift built in).
+**Serving:** frontend → api → GCS artifacts → predict (auth, SHAP, drift built in).
 
 **Training:** Vertex custom job using `training/` container → writes to GCS. No redeploy needed when model files update in place.

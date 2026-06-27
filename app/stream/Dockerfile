@@ -11,4 +11,6 @@ ENV STREAM_INTERVAL_SECONDS=1
 
 EXPOSE 8000
 
+LABEL org.opencontainers.image.title="stream"
+
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

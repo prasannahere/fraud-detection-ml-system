@@ -51,8 +51,6 @@ docker run --rm \
   fraud-training \
   --train-transaction /data/train_transaction.csv \
   --train-identity /data/train_identity.csv \
-  --test-transaction /data/test_transaction.csv \
-  --test-identity /data/test_identity.csv \
   --output-dir /outputs/model
 ```
 

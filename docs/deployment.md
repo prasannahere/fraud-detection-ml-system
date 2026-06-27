@@ -43,15 +43,31 @@ docker compose -f infra/docker-compose.yml up --build
 
 ## Vertex AI (manual)
 
-1. Push training container to Artifact Registry:
+Vertex mounts GCS buckets at `/gcs/<bucket-name>/...` (not `/mnt/gcs`, which is Cloud Run only).
+
+1. Upload training data:
+   ```bash
+   gsutil cp data/train_transaction.csv gs://fraud-detection-500117-artifacts/data/
+   gsutil cp data/train_identity.csv gs://fraud-detection-500117-artifacts/data/
+   ```
+2. Push training container to Artifact Registry:
    ```bash
    docker build -f training/Dockerfile -t us-central1-docker.pkg.dev/PROJECT/REPO/training:latest .
    docker push us-central1-docker.pkg.dev/PROJECT/REPO/training:latest
    ```
-2. Create a **Custom training** job in Vertex AI using that image.
-3. Set **Base output directory** to `gs://fraud-detection-500117-artifacts/models/xgb95/` (Vertex sets `AIP_MODEL_DIR`; the training script writes there automatically).
-4. Leave container **arguments empty** so the image runs with GCS data defaults (do not pass `--help` or `--output-dir /outputs/model`).
-5. Optionally compile and upload pipeline spec:
+3. Create a **Custom training** job in Vertex AI using that image.
+4. Set **Base output directory** to `gs://fraud-detection-500117-artifacts/models/xgb95/` (Vertex sets `AIP_MODEL_DIR`; the script normalizes that to the FUSE path your API reads).
+5. Set container **arguments** (one per line):
+   ```
+   --train-transaction
+   /gcs/fraud-detection-500117-artifacts/data/train_transaction.csv
+   --train-identity
+   /gcs/fraud-detection-500117-artifacts/data/train_identity.csv
+   --output-dir
+   /gcs/fraud-detection-500117-artifacts/models/xgb95
+   ```
+   Or leave arguments empty and set environment variable `GCS_ARTIFACTS_BUCKET=fraud-detection-500117-artifacts` on the job.
+6. Optionally compile and upload pipeline spec:
    ```bash
    docker compose -f infra/docker-compose.yml --profile jobs run --rm pipelines compile-and-upload
    ```

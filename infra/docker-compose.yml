@@ -47,10 +47,8 @@ services:
       - /data/sample_train_transaction.csv
       - --train-identity
       - /data/sample_train_identity.csv
-      - --test-transaction
-      - /data/sample_test_transaction.csv
-      - --test-identity
-      - /data/sample_test_identity.csv
+      - --split-method
+      - temporal
       - --output-dir
       - /outputs/model
 

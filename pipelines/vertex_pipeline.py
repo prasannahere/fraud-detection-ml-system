@@ -13,14 +13,12 @@ DEFAULT_TRAINING_IMAGE = os.getenv(
     "TRAINING_IMAGE",
     "us-central1-docker.pkg.dev/fraud-detection-500117/fraud-detection-repo/training:latest",
 )
-DEFAULT_INFRA_IMAGE = os.getenv(
-    "INFRA_IMAGE",
-    "us-central1-docker.pkg.dev/fraud-detection-500117/fraud-detection-repo/infra:latest",
-)
 GCS_ARTIFACTS_BUCKET = os.getenv("GCS_ARTIFACTS_BUCKET", "fraud-detection-500117-artifacts")
-GCS_DATA_PREFIX = os.getenv("GCS_DATA_PREFIX", "data/data")
+GCS_DATA_PREFIX = os.getenv("GCS_DATA_PREFIX", "data")
 OUTPUT_PREFIX = os.getenv("OUTPUT_PREFIX", "models/xgb95")
-GCS_DATA_ROOT = f"/gcs/{GCS_ARTIFACTS_BUCKET}/{GCS_DATA_PREFIX}"
+GCS_FUSE_ROOT = f"/gcs/{GCS_ARTIFACTS_BUCKET}"
+GCS_DATA_ROOT = f"{GCS_FUSE_ROOT}/{GCS_DATA_PREFIX}"
+OUTPUT_FUSE_ROOT = f"{GCS_FUSE_ROOT}/{OUTPUT_PREFIX}"
 
 
 def compile_pipeline(output_path: Path | None = None) -> Path:
@@ -30,7 +28,7 @@ def compile_pipeline(output_path: Path | None = None) -> Path:
 
     pipeline_spec = {
         "display_name": "fraud-detection-train",
-        "description": "Train XGBoost fraud model and upload artifacts to GCS",
+        "description": "Train XGBoost fraud model and write artifacts to GCS via FUSE",
         "components": [
             {
                 "name": "train-model",
@@ -42,22 +40,20 @@ def compile_pipeline(output_path: Path | None = None) -> Path:
                     f"{GCS_DATA_ROOT}/train_transaction.csv",
                     "--train-identity",
                     f"{GCS_DATA_ROOT}/train_identity.csv",
-                    "--test-transaction",
-                    f"{GCS_DATA_ROOT}/test_transaction.csv",
-                    "--test-identity",
-                    f"{GCS_DATA_ROOT}/test_identity.csv",
                     "--output-dir",
-                    "/outputs/model",
+                    OUTPUT_FUSE_ROOT,
+                    "--split-method",
+                    "temporal",
+                    "--model-version",
+                    "v1",
+                    "--model-tag",
+                    "xgb95",
                 ],
-            },
-            {
-                "name": "export-artifacts",
-                "image": DEFAULT_INFRA_IMAGE,
-                "command": [
-                    "bash",
-                    "-c",
-                    f"gsutil -m cp -r /outputs/model/* gs://{GCS_ARTIFACTS_BUCKET}/{OUTPUT_PREFIX}/",
-                ],
+                "environment": {
+                    "GCS_ARTIFACTS_BUCKET": GCS_ARTIFACTS_BUCKET,
+                    "GCS_DATA_PREFIX": GCS_DATA_PREFIX,
+                    "OUTPUT_PREFIX": OUTPUT_PREFIX,
+                },
             },
         ],
     }

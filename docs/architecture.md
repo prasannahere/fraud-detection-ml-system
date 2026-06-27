@@ -53,6 +53,8 @@ flowchart LR
 
 When Vertex writes new artifacts to the same GCS prefix, **api picks them up without redeploy** (Cloud Run GCS volume mount).
 
+**Storage paths:** Vertex custom training reads/writes via `/gcs/<bucket>/...`. Cloud Run mounts the same bucket at `/mnt/gcs/...`.
+
 ## CI/CD triggers
 
 `deploy-app.yml` runs on push to `main` only when these change:

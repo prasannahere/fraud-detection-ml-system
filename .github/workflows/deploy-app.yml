@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "app/**"
+      - "app/frontend/**"
+      - "app/api/**"
+      - "app/stream/**"
       - "shared/**"
       - ".github/workflows/deploy-app.yml"
   workflow_dispatch:
@@ -25,57 +27,61 @@ env:
   GCS_ARTIFACTS_BUCKET: fraud-detection-500117-artifacts
 
 jobs:
-  deploy-backends:
-    name: Deploy ${{ matrix.service }}
+  changes:
+    name: Detect changed services
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service: fraud-api
-            dockerfile: app/api/Dockerfile
-            context: .
-          - service: stream-service
-            dockerfile: app/stream/Dockerfile
-            context: app/stream
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      stream: ${{ steps.filter.outputs.stream }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      workflow: ${{ steps.filter.outputs.workflow }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'app/api/**'
+              - 'shared/**'
+            stream:
+              - 'app/stream/**'
+            frontend:
+              - 'app/frontend/**'
+            workflow:
+              - '.github/workflows/deploy-app.yml'
+
+  deploy-api:
+    name: Deploy fraud-api
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
 
-      - name: Build and push image
+      - name: Build and push fraud-api
         env:
-          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/${{ matrix.service }}:${{ github.sha }}
+          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/fraud-api:${{ github.sha }}
         run: |
-          if [ "${{ matrix.service }}" = "fraud-api" ]; then
-            docker build \
-              -f "${{ matrix.dockerfile }}" \
-              --build-arg MODEL_VERSION=v1 \
-              -t "$IMAGE" \
-              "${{ matrix.context }}"
-          else
-            docker build \
-              -f "${{ matrix.dockerfile }}" \
-              -t "$IMAGE" \
-              "${{ matrix.context }}"
-          fi
-
+          docker build \
+            -f app/api/Dockerfile \
+            --build-arg MODEL_VERSION=v1 \
+            -t "$IMAGE" \
+            .
           docker push "$IMAGE"
 
       - name: Deploy fraud-api to Cloud Run
-        if: matrix.service == 'fraud-api'
         env:
           IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/fraud-api:${{ github.sha }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -96,8 +102,33 @@ jobs:
             --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS},MODEL_PATH=/mnt/gcs/models/xgb95/xgb95.ubj,ENCODERS_PATH=/mnt/gcs/models/xgb95/xgb95_encoders.pkl,TRAINING_STATS_PATH=/mnt/gcs/models/xgb95/xgb95_train_stats.pkl,METADATA_PATH=/mnt/gcs/models/xgb95/xgb95_metadata.json,THRESHOLD_PATH=/mnt/gcs/models/xgb95/xgb_threshold.json,FEATURES_PATH=/mnt/gcs/models/xgb95/xgb95_features.pkl" \
             --quiet
 
+  deploy-stream:
+    name: Deploy stream-service
+    needs: changes
+    if: needs.changes.outputs.stream == 'true' || needs.changes.outputs.workflow == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
+
+      - name: Build and push stream-service
+        env:
+          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/stream-service:${{ github.sha }}
+        run: |
+          docker build -f app/stream/Dockerfile -t "$IMAGE" app/stream
+          docker push "$IMAGE"
+
       - name: Deploy stream-service to Cloud Run
-        if: matrix.service == 'stream-service'
         env:
           IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/stream-service:${{ github.sha }}
           FRAUD_AUTH_PASSWORD: ${{ secrets.FRAUD_AUTH_PASSWORD }}
@@ -122,21 +153,24 @@ jobs:
 
   deploy-frontend:
     name: Deploy frontend
-    needs: deploy-backends
+    needs: [changes, deploy-api, deploy-stream]
+    if: |
+      always() &&
+      !cancelled() &&
+      (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.workflow == 'true') &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      (needs.deploy-stream.result == 'success' || needs.deploy-stream.result == 'skipped')
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
@@ -152,7 +186,7 @@ jobs:
             --region "${{ env.GCP_REGION }}" \
             --format 'value(status.url)')" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push frontend image
+      - name: Build and push frontend
         env:
           IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/frontend:${{ github.sha }}
         run: |
@@ -161,7 +195,6 @@ jobs:
             --build-arg VITE_STREAM_API_URL="${{ steps.urls.outputs.stream_api_url }}" \
             -t "$IMAGE" \
             app/frontend
-
           docker push "$IMAGE"
 
       - name: Deploy frontend to Cloud Run

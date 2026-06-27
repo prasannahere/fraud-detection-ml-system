@@ -1,6 +1,6 @@
 # Fraud Detection ML System (GCP)
 
-End-to-end machine learning system for fraud detection: feature engineering, model training, FastAPI serving, and GCP deployment with CI/CD.
+Fraud detection system: **Vertex AI** trains and writes model artifacts to GCS; **Cloud Run** serves predictions via `fraud-api`; **GitHub Actions** deploys the app layer only when frontend, API, or stream code changes.
 
 ## Project layout
 
@@ -16,7 +16,6 @@ End-to-end machine learning system for fraud detection: feature engineering, mod
 
 .github/workflows/
 ├── deploy-app.yml
-├── train-model.yml
 └── infra.yml
 ```
 
@@ -80,28 +79,42 @@ Dataset: [IEEE-CIS Fraud Detection](https://www.kaggle.com/competitions/ieee-fra
 
 ---
 
-## CI/CD workflows
+## CI/CD
 
-| Workflow | Purpose |
-|----------|---------|
-| `deploy-app.yml` | Build and deploy API, stream, frontend to Cloud Run |
-| `train-model.yml` | Train model in CI and upload artifacts to GCS (for Cloud Run inference) |
-| `infra.yml` | Build `infra` container and bootstrap GCP resources |
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `deploy-app.yml` | Push when `app/frontend`, `app/api`, `app/stream`, or `shared/` changes | Deploy only the changed Cloud Run service(s) |
+| `infra.yml` | Manual only | GCP bootstrap |
 
-Vertex AI training and pipelines are managed manually in the GCP console — not via GitHub Actions.
+**Not in CI:** training, pipelines, model artifacts — handled by **Vertex AI**.
 
 ---
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-    Client[Client] --> FE[frontend]
-    FE --> API[fraud-api]
-    FE --> Stream[stream-service]
+flowchart TB
+    subgraph vertex [Vertex AI]
+        Train[Train + evaluate]
+    end
+
+    subgraph gcs [GCS]
+        Models[models/xgb95/]
+    end
+
+    subgraph cloudrun [Cloud Run]
+        FE[frontend]
+        API[fraud-api]
+        Stream[stream-service]
+    end
+
+    Train --> Models
+    FE --> API
+    FE --> Stream
     Stream --> API
-    API --> GCS[(GCS artifacts)]
-    Train[training/] --> GCS
+    API --> Models
 ```
 
-**Request path:** Client → **Cloud Run** (FastAPI) loads **model from GCS** and returns predictions.
+**Serving:** frontend → fraud-api → GCS artifacts → predict (auth, SHAP, drift built in).
+
+**Training:** Vertex custom job using `training/` container → writes to GCS. No redeploy needed when model files update in place.

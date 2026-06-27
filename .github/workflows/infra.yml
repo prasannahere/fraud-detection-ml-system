@@ -2,11 +2,6 @@ name: Infra
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "infra/**"
-      - ".github/workflows/infra.yml"
 
 permissions:
   contents: read

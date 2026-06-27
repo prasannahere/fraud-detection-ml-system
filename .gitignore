@@ -239,6 +239,7 @@ outputs/
 /sandbox
 /data
 /model
+/notebooks
 
 # Model artifacts (loaded from GCS in production; keep locally for dev)
 fraud-api/model/*

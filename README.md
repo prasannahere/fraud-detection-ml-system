@@ -2,210 +2,106 @@
 
 End-to-end machine learning system for fraud detection: feature engineering, model training, FastAPI serving, and GCP deployment with CI/CD.
 
+## Project layout
+
+```
+├── app/         # product/API/inference (api, stream, frontend)
+├── training/    # model training code
+├── pipelines/   # Vertex AI pipeline orchestration
+├── infra/       # cloud setup (Docker Compose, GCP scripts)
+├── shared/      # reusable common code (preprocess, drift, constants)
+├── tests/
+├── docs/
+└── README.md
+
+.github/workflows/
+├── deploy-app.yml
+├── train-model.yml
+└── infra.yml
+```
+
+See [docs/architecture.md](docs/architecture.md) and [docs/deployment.md](docs/deployment.md) for details.
+
 ---
 
-## 🧱 🧰 Solid MLE-1 Tech Stack (GCP Version)
+## Quick start (local)
 
-### 🧠 ML / Data
+```bash
+cp .env.example .env
+pip install -r requirements.txt
+docker compose -f infra/docker-compose.yml up --build
+```
+
+| Service | URL |
+|---------|-----|
+| fraud-api | http://localhost:8000/docs |
+| stream-service | http://localhost:8001 |
+| frontend | http://localhost:3000 |
+
+Place trained artifacts in `app/api/model/` for local inference.
+
+---
+
+## Training
+
+```bash
+docker build -f training/Dockerfile -t fraud-training .
+docker run --rm \
+  -v "$PWD/data:/data:ro" \
+  -v "$PWD/outputs:/outputs" \
+  fraud-training \
+  --train-transaction /data/train_transaction.csv \
+  --train-identity /data/train_identity.csv \
+  --test-transaction /data/test_transaction.csv \
+  --test-identity /data/test_identity.csv \
+  --output-dir /outputs/model
+```
+
+Or without Docker:
+
+```bash
+pip install -r training/requirements.txt
+python training/xgb_train.py --output-dir app/api/model
+```
+
+Dataset: [IEEE-CIS Fraud Detection](https://www.kaggle.com/competitions/ieee-fraud-detection/data) — place CSVs in `data/`.
+
+---
+
+## Tech stack
 
 | Area | Tools |
 |------|--------|
-| Language | Python |
-| Tabular / numerics | Pandas, NumPy |
-| Classical ML | Scikit-learn |
-| Gradient boosting | LightGBM |
-| Explainability | SHAP |
-
-### ⚙️ Backend / Serving
-
-- **FastAPI** — prediction API
-
-### 📦 Packaging
-
-- **Docker** — containerized API
-
-### ☁️ GCP Services (core)
-
-| Service | Role |
-|---------|------|
-| **Google Cloud Storage** | Store data + model artifacts |
-| **Cloud Run** | Deploy API (serverless) |
-| **Artifact Registry** | Store Docker images |
-| **Cloud Build** | Automate build + deploy |
-
-### 🔁 CI/CD
-
-- **GitHub Actions** — trigger builds on push
-- **Cloud Build** — build image and deploy
-
-### 📊 Monitoring
-
-- **Cloud Logging** — structured logs
-- **Cloud Monitoring** — metrics and alerts
-
-### 🧪 Dev hygiene
-
-- **pytest** — tests
-- **black** — code formatting
+| ML | Python, Pandas, XGBoost, scikit-learn |
+| API | FastAPI, Pydantic |
+| Frontend | React, Vite, Plotly |
+| Cloud | GCS, Cloud Run, Artifact Registry, BigQuery |
+| CI/CD | GitHub Actions |
 
 ---
 
-## Dataset
+## CI/CD workflows
 
-👉 **IEEE Fraud Detection** — transaction and identity tables for fraud classification.
+| Workflow | Purpose |
+|----------|---------|
+| `deploy-app.yml` | Build and deploy API, stream, frontend to Cloud Run |
+| `train-model.yml` | Train model in CI and upload artifacts to GCS (for Cloud Run inference) |
+| `infra.yml` | Build `infra` container and bootstrap GCP resources |
 
-Download the competition data from [Kaggle: IEEE-CIS Fraud Detection](https://www.kaggle.com/competitions/ieee-fraud-detection/data) (requires a Kaggle account and competition rules acceptance).
-
----
-
-## 🗺️ 4-Week Roadmap (GCP Blueprint)
-
-### 📅 Week 1 — Data + Baseline
-
-**🎯 Goal:** Get a working ML pipeline.
-
-1. **Project structure**
-
-   ```
-   ml-fraud-gcp/
-   ├── data/
-   ├── notebooks/
-   ├── src/
-   │   ├── data/
-   │   ├── features/
-   │   ├── models/
-   │   └── api/
-   ├── tests/
-   └── requirements.txt
-   ```
-
-2. **Data work** — Load transaction + identity tables; merge datasets; memory optimization (downcasting).
-
-3. **EDA** — Imbalance analysis; missing values; basic feature understanding.
-
-4. **Baseline model** — Logistic Regression.
-
-5. **Evaluation** — ROC-AUC; Precision–Recall curve.
-
-**Output:** `baseline_model.pkl`, preprocessing pipeline.
+Vertex AI training and pipelines are managed manually in the GCP console — not via GitHub Actions.
 
 ---
 
-### 📅 Week 2 — Feature Engineering + Main Model
-
-**🎯 Goal:** Make the pipeline production-usable.
-
-1. **Feature engineering** — User transaction frequency; time-based patterns; aggregates (mean, std, count).
-
-2. **Missing value strategy** — Group-based imputations; flags for missingness.
-
-3. **Train main model** — LightGBM.
-
-4. **Handle imbalance** — Class weights.
-
-5. **Explainability (SHAP)** — Feature importance; individual prediction explanations.
-
-**Output:** `model.pkl`, feature pipeline script.
-
----
-
-### 📅 Week 3 — API + Docker
-
-**🎯 Goal:** Serve the model locally.
-
-1. **FastAPI** — Prediction endpoint.
-
-   **Request**
-
-   ```http
-   POST /predict
-   ```
-
-   ```json
-   {
-     "transaction_amt": 1200,
-     "user_id": "abc123"
-   }
-   ```
-
-   **Response**
-
-   ```json
-   {
-     "fraud_probability": 0.82
-   }
-   ```
-
-2. **Load model + pipeline** — Same preprocessing as training.
-
-3. **Input validation** — Pydantic schemas.
-
-4. **Docker**
-
-   ```bash
-   docker build -t fraud-api .
-   docker run -p 8000:8000 fraud-api
-   ```
-
-5. **Logging** — Log requests and predictions.
-
-**Output:** Local API running; Docker image ready.
-
----
-
-### 📅 Week 4 — GCP Deployment + CI/CD
-
-**🎯 Goal:** Production-ready system.
-
-1. **Google Cloud Storage** — Upload `model.pkl` and preprocessing artifacts.
-
-2. **Artifact Registry** — Push Docker image.
-
-3. **Cloud Run** — Deploy API (serverless, auto scaling, HTTPS).
-
-4. **CI/CD** — GitHub Actions → Cloud Build:
-
-   Push to GitHub → trigger build → build Docker image → push to Artifact Registry → deploy to Cloud Run.
-
-5. **Monitoring** — Cloud Logging + Cloud Monitoring:
-
-   - Prediction distribution  
-   - Request latency  
-   - Errors  
-
-6. **Basic drift check** — Compare incoming features vs training distribution; log anomalies.
-
-7. **Tests** — API tests; data validation tests.
-
-8. **README** — Document architecture, decisions, and tradeoffs (this file).
-
----
-
-## 🧠 Final Architecture
+## Architecture
 
 ```mermaid
 flowchart LR
-    Client[Client] --> CR[Cloud Run\nFastAPI API]
-    CR --> GCS[(Model artifacts\nGCS)]
-    CR --> Logs[Cloud Logging]
+    Client[Client] --> FE[frontend]
+    FE --> API[fraud-api]
+    FE --> Stream[stream-service]
+    Stream --> API
+    API --> GCS[(GCS artifacts)]
+    Train[training/] --> GCS
 ```
 
-```
-Client → Cloud Run (FastAPI API)
-            ↓
-        Model (GCS)
-            ↓
-    Logs → Cloud Logging
-```
-
-**Request path:** Client → **Cloud Run** (FastAPI) loads **model from GCS** and returns predictions; **Cloud Logging** captures request/prediction and operational signals.
-
----
-
-## Architecture notes (for Week 4 README completion)
-
-When you finish implementation, extend this section with:
-
-- **Architecture** — How data, training, artifacts, and serving connect on GCP.
-- **Decisions** — Why LightGBM, Cloud Run, GCS-backed models, etc.
-- **Tradeoffs** — Latency vs cold start, batch vs online features, monitoring depth vs cost.
+**Request path:** Client → **Cloud Run** (FastAPI) loads **model from GCS** and returns predictions.

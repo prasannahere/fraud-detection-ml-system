@@ -8,11 +8,12 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY app/api/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py .
-COPY src/ src/
+COPY shared/ shared/
+COPY app/api/main.py .
+COPY app/api/src/ src/
 
 EXPOSE 8000
 

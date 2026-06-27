@@ -9,15 +9,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(REPO_ROOT / ".env")
 
-MODEL_PATH = Path(os.getenv("MODEL_PATH", "model/xgb95_final.ubj"))
-ENCODERS_PATH = Path(os.getenv("ENCODERS_PATH", "model/encoders.pkl"))
-TRAINING_STATS_PATH = Path(os.getenv("TRAINING_STATS_PATH", "model/training_stats.pkl"))
-METADATA_PATH = Path(os.getenv("METADATA_PATH", "model/metadata.json"))
-THRESHOLD_PATH = Path(os.getenv("THRESHOLD_PATH", "model/threshold.json"))
-FEATURES_PATH = Path(os.getenv("FEATURES_PATH", "model/xgb95_final_features.pkl"))
+MODEL_PATH = Path(os.getenv("MODEL_PATH", "model/xgb95.ubj"))
+ENCODERS_PATH = Path(os.getenv("ENCODERS_PATH", "model/xgb95_encoders.pkl"))
+TRAINING_STATS_PATH = Path(os.getenv("TRAINING_STATS_PATH", "model/xgb95_train_stats.pkl"))
+METADATA_PATH = Path(os.getenv("METADATA_PATH", "model/xgb95_metadata.json"))
+THRESHOLD_PATH = Path(os.getenv("THRESHOLD_PATH", "model/xgb_threshold.json"))
+FEATURES_PATH = Path(os.getenv("FEATURES_PATH", "model/xgb95_features.pkl"))
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-change-me-in-production")
 JWT_ALGORITHM = "HS256"
@@ -82,7 +82,7 @@ def resolve_features_path() -> Path:
     if FEATURES_PATH.exists():
         return FEATURES_PATH
     model_dir = FEATURES_PATH.parent
-    for name in ("features.pkl", "feature_columns.pkl"):
+    for name in ("xgb95_final_features.pkl", "features.pkl", "feature_columns.pkl"):
         candidate = model_dir / name
         if candidate.exists():
             return candidate

@@ -1,9 +1,12 @@
-name: Deploy to Cloud Run
+name: Deploy App
 
-# Triggers: push to main, or manual run from Actions tab (workflow_dispatch).
 on:
   push:
     branches: [main]
+    paths:
+      - "app/**"
+      - "shared/**"
+      - ".github/workflows/deploy-app.yml"
   workflow_dispatch:
 
 permissions:
@@ -30,11 +33,11 @@ jobs:
       matrix:
         include:
           - service: fraud-api
-            context: fraud-api
-            port: 8000
+            dockerfile: app/api/Dockerfile
+            context: .
           - service: stream-service
-            context: stream-service
-            port: 8000
+            dockerfile: app/stream/Dockerfile
+            context: app/stream
 
     steps:
       - name: Checkout
@@ -58,11 +61,15 @@ jobs:
         run: |
           if [ "${{ matrix.service }}" = "fraud-api" ]; then
             docker build \
+              -f "${{ matrix.dockerfile }}" \
               --build-arg MODEL_VERSION=v1 \
               -t "$IMAGE" \
-              ${{ matrix.context }}
+              "${{ matrix.context }}"
           else
-            docker build -t "$IMAGE" ${{ matrix.context }}
+            docker build \
+              -f "${{ matrix.dockerfile }}" \
+              -t "$IMAGE" \
+              "${{ matrix.context }}"
           fi
 
           docker push "$IMAGE"
@@ -86,7 +93,7 @@ jobs:
             --allow-unauthenticated \
             --add-volume name=gcs-artifacts,type=cloud-storage,bucket=${{ env.GCS_ARTIFACTS_BUCKET }} \
             --add-volume-mount volume=gcs-artifacts,mount-path=/mnt/gcs \
-            --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS},MODEL_PATH=/mnt/gcs/models/xgb95/xgb95_final.ubj,ENCODERS_PATH=/mnt/gcs/models/xgb95/encoders.pkl,TRAINING_STATS_PATH=/mnt/gcs/models/xgb95/training_stats.pkl,METADATA_PATH=/mnt/gcs/models/xgb95/metadata.json,THRESHOLD_PATH=/mnt/gcs/models/xgb95/threshold.json,FEATURES_PATH=/mnt/gcs/models/xgb95/xgb95_final_features.pkl" \
+            --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS},MODEL_PATH=/mnt/gcs/models/xgb95/xgb95.ubj,ENCODERS_PATH=/mnt/gcs/models/xgb95/xgb95_encoders.pkl,TRAINING_STATS_PATH=/mnt/gcs/models/xgb95/xgb95_train_stats.pkl,METADATA_PATH=/mnt/gcs/models/xgb95/xgb95_metadata.json,THRESHOLD_PATH=/mnt/gcs/models/xgb95/xgb_threshold.json,FEATURES_PATH=/mnt/gcs/models/xgb95/xgb95_features.pkl" \
             --quiet
 
       - name: Deploy stream-service to Cloud Run
@@ -153,7 +160,7 @@ jobs:
             --build-arg VITE_FRAUD_API_URL="${{ steps.urls.outputs.fraud_api_url }}" \
             --build-arg VITE_STREAM_API_URL="${{ steps.urls.outputs.stream_api_url }}" \
             -t "$IMAGE" \
-            frontend
+            app/frontend
 
           docker push "$IMAGE"
 

@@ -1,9 +1,0 @@
-# Kaggle artifacts (from kaggle-ieee-cis-prasannahere.ipynb + export cell):
-#   xgb95_final.ubj              <- notebook cell 37
-#   xgb95_final_features.pkl     <- notebook cell 37 (model column order)
-#   encoders.pkl                 <- kaggle_export_encoders_standalone.py on Kaggle
-#   training_stats.pkl           <- same export cell (drift monitoring)
-#   threshold.json
-#   metadata.json
-#
-# Local training (xgb_train.py) writes features.pkl — remove it if using Kaggle artifacts.

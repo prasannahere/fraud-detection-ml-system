@@ -4,19 +4,30 @@ from __future__ import annotations
 
 import argparse
 import gc
+import json
+import os
 import sys
 from pathlib import Path
 
 import joblib
 import numpy as np
 import xgboost as xgb
+from sklearn.metrics import roc_auc_score
 
-ROOT = Path(__file__).resolve().parents[2]
-FRAUD_API_DIR = ROOT / "fraud-api"
-sys.path.insert(0, str(FRAUD_API_DIR))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
-from src.drift import save_training_stats
-from src.preprocess import FraudPreprocessor, load_ieee_data  # noqa: E402
+from shared.drift import save_training_stats  # noqa: E402
+from shared.preprocess import FraudPreprocessor, load_ieee_data  # noqa: E402
+
+DEFAULT_THRESHOLDS = {"block": 0.85, "review": 0.60, "default": 0.82}
+
+
+def default_output_dir() -> Path:
+    """Vertex AI sets AIP_MODEL_DIR; fall back to local API model dir."""
+    if env := os.environ.get("AIP_MODEL_DIR"):
+        return Path(env)
+    return ROOT / "app" / "api" / "model"
 
 
 def parse_args() -> argparse.Namespace:
@@ -44,7 +55,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=FRAUD_API_DIR / "model",
+        default=None,
+        help="Artifact directory (defaults to AIP_MODEL_DIR or app/api/model)",
+    )
+    parser.add_argument(
+        "--model-version",
+        default=os.environ.get("MODEL_VERSION", "v1"),
+        help="Version string stored in xgb95_metadata.json",
+    )
+    parser.add_argument(
+        "--fit-with-test",
+        action="store_true",
+        help="Include test split when fitting encoders (Kaggle-style; not recommended for production)",
     )
     parser.add_argument("--n-estimators", type=int, default=2000)
     parser.add_argument("--learning-rate", type=float, default=0.02)
@@ -62,8 +84,13 @@ def optimize_dtypes(df):
     return out
 
 
+def write_json(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
 def train_and_export(args: argparse.Namespace) -> None:
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = args.output_dir or default_output_dir()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     x_train, y_train, x_test = load_ieee_data(
         args.train_transaction,
@@ -73,8 +100,11 @@ def train_and_export(args: argparse.Namespace) -> None:
     )
 
     preprocessor = FraudPreprocessor()
-    preprocessor.fit(x_train, x_test)
-    save_training_stats(x_train, args.output_dir / "training_stats.pkl")
+    if args.fit_with_test:
+        preprocessor.fit(x_train, x_test)
+    else:
+        preprocessor.fit(x_train)
+    save_training_stats(x_train, output_dir / "xgb95_train_stats.pkl")
 
     x_train = preprocessor.transform(x_train)
     feature_columns = preprocessor.feature_columns
@@ -105,15 +135,36 @@ def train_and_export(args: argparse.Namespace) -> None:
         verbose=50,
     )
 
-    model.save_model(args.output_dir / "xgb95_final.ubj")
-    preprocessor.save(args.output_dir / "encoders.pkl")
-    joblib.dump(feature_columns, args.output_dir / "xgb95_final_features.pkl")
+    valid_probs = model.predict_proba(x_train.loc[idx_valid, feature_columns])[:, 1]
+    valid_auc = float(roc_auc_score(y_train.loc[idx_valid], valid_probs))
 
-    print(f"Saved model artifacts to {args.output_dir}")
-    print("  xgb95_final.ubj")
-    print("  encoders.pkl")
-    print("  xgb95_final_features.pkl")
-    print("  training_stats.pkl")
+    model.save_model(output_dir / "xgb95.ubj")
+    preprocessor.save(output_dir / "xgb95_encoders.pkl")
+    joblib.dump(feature_columns, output_dir / "xgb95_features.pkl")
+
+    write_json(
+        output_dir / "xgb95_metadata.json",
+        {
+            "model_name": "xgboost_ieee_fraud",
+            "version": args.model_version,
+            "auc": round(valid_auc, 4),
+            "threshold": DEFAULT_THRESHOLDS["default"],
+            "features": len(feature_columns),
+            "trained_on": "IEEE-CIS Fraud Detection",
+            "algorithm": "XGBoost",
+            "best_iteration": int(getattr(model, "best_iteration", model.n_estimators)),
+        },
+    )
+    write_json(output_dir / "xgb_threshold.json", DEFAULT_THRESHOLDS)
+
+    print(f"Saved model artifacts to {output_dir}")
+    print("  xgb95.ubj")
+    print("  xgb95_encoders.pkl")
+    print("  xgb95_features.pkl")
+    print("  xgb95_train_stats.pkl")
+    print("  xgb95_metadata.json")
+    print("  xgb_threshold.json")
+    print(f"Validation AUC: {valid_auc:.4f}")
     print(f"Feature count: {len(feature_columns)}")
 
     del model, x_train, y_train, x_test, preprocessor

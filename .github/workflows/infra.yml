@@ -1,0 +1,62 @@
+name: Infra
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: fraud-detection-500117
+  GCP_REGION: us-central1
+  AR_REPOSITORY: fraud-detection-repo
+  AR_HOST: us-central1-docker.pkg.dev
+  GCS_ARTIFACTS_BUCKET: fraud-detection-500117-artifacts
+
+jobs:
+  provision:
+    name: Build infra container and apply setup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.AR_HOST }} --quiet
+
+      - name: Build and push infra image
+        env:
+          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/infra:${{ github.sha }}
+          LATEST: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/infra:latest
+        run: |
+          docker build -f infra/Dockerfile -t "$IMAGE" -t "$LATEST" .
+          docker push "$IMAGE"
+          docker push "$LATEST"
+
+      - name: Run infra setup container
+        env:
+          IMAGE: ${{ env.AR_HOST }}/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPOSITORY }}/infra:${{ github.sha }}
+        run: |
+          docker run --rm \
+            -e GCP_PROJECT_ID="${GCP_PROJECT_ID}" \
+            -e GCP_REGION="${GCP_REGION}" \
+            -e AR_REPOSITORY="${AR_REPOSITORY}" \
+            -e GCS_ARTIFACTS_BUCKET="${GCS_ARTIFACTS_BUCKET}" \
+            -v "$HOME/.config/gcloud:/root/.config/gcloud:ro" \
+            "$IMAGE"

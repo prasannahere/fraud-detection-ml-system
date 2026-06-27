@@ -9,7 +9,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from src.constants import (
+from shared.constants import (
     AGG_MAIN_COLUMNS,
     AGGREGATIONS,
     AGG_UIDS,
@@ -186,7 +186,7 @@ def _combine_columns(df: pd.DataFrame, col1: str, col2: str) -> pd.Series:
     return df[col1].astype("string") + "_" + df[col2].astype("string")
 
 
-def preprocess(df: pd.DataFrame, encoders_path: str | Path = "model/encoders.pkl") -> pd.DataFrame:
+def preprocess(df: pd.DataFrame, encoders_path: str | Path = "model/xgb95_encoders.pkl") -> pd.DataFrame:
     """Apply saved preprocessing to incoming transactions."""
     preprocessor = FraudPreprocessor.load(encoders_path)
     return preprocessor.transform(df)

@@ -1,0 +1,90 @@
+services:
+  fraud-api:
+    build:
+      context: ..
+      dockerfile: app/api/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    volumes:
+      - ../app/api/model:/app/model:ro
+
+  stream-service:
+    build: ../app/stream
+    ports:
+      - "8001:8000"
+    env_file:
+      - ../.env
+    environment:
+      FRAUD_API_URL: http://fraud-api:8000
+      DATA_FILE_PATH: data/sample_transactions.csv
+    volumes:
+      - ../app/stream/data:/app/data:ro
+
+  frontend:
+    build:
+      context: ../app/frontend
+      args:
+        VITE_FRAUD_API_URL: ${VITE_FRAUD_API_URL}
+        VITE_STREAM_API_URL: ${VITE_STREAM_API_URL}
+    ports:
+      - "3000:80"
+    depends_on:
+      - fraud-api
+      - stream-service
+
+  training:
+    build:
+      context: ..
+      dockerfile: training/Dockerfile
+    profiles: ["jobs"]
+    volumes:
+      - ../data:/data:ro
+      - ../outputs:/outputs
+    command:
+      - --train-transaction
+      - /data/sample_train_transaction.csv
+      - --train-identity
+      - /data/sample_train_identity.csv
+      - --test-transaction
+      - /data/sample_test_transaction.csv
+      - --test-identity
+      - /data/sample_test_identity.csv
+      - --output-dir
+      - /outputs/model
+
+  pipelines:
+    build:
+      context: ..
+      dockerfile: pipelines/Dockerfile
+    profiles: ["jobs"]
+    env_file:
+      - ../.env
+    environment:
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-fraud-detection-500117}
+      GCP_REGION: ${GCP_REGION:-us-central1}
+      AR_HOST: ${AR_HOST:-us-central1-docker.pkg.dev}
+      AR_REPOSITORY: ${AR_REPOSITORY:-fraud-detection-repo}
+      GCS_ARTIFACTS_BUCKET: ${GCS_ARTIFACTS_BUCKET:-fraud-detection-500117-artifacts}
+      TRAINING_IMAGE: ${TRAINING_IMAGE:-}
+      INFRA_IMAGE: ${INFRA_IMAGE:-}
+    volumes:
+      - ../pipelines/compiled:/app/pipelines/compiled
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    command: ["compile"]
+
+  infra:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    profiles: ["jobs"]
+    env_file:
+      - ../.env
+    environment:
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-fraud-detection-500117}
+      GCP_REGION: ${GCP_REGION:-us-central1}
+      AR_REPOSITORY: ${AR_REPOSITORY:-fraud-detection-repo}
+      GCS_ARTIFACTS_BUCKET: ${GCS_ARTIFACTS_BUCKET:-fraud-detection-500117-artifacts}
+    volumes:
+      - ${HOME}/.config/gcloud:/root/.config/gcloud:ro

@@ -10,8 +10,6 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from src.config import TRAINING_STATS_PATH
-
 MONITORED_FEATURES = [
     "TransactionAmt",
     "card1_FE",
@@ -35,14 +33,13 @@ def _finite_float(value: float, default: float = 0.0) -> float:
     return numeric if math.isfinite(numeric) else default
 
 
-def load_training_stats() -> dict[str, dict[str, float]] | None:
-    if not TRAINING_STATS_PATH.exists():
+def load_training_stats(stats_path: Path) -> dict[str, dict[str, float]] | None:
+    if not stats_path.exists():
         return None
-    return joblib.load(TRAINING_STATS_PATH)
+    return joblib.load(stats_path)
 
 
-def save_training_stats(df: pd.DataFrame, path: Path | None = None) -> None:
-    target = path or TRAINING_STATS_PATH
+def save_training_stats(df: pd.DataFrame, path: Path) -> None:
     numeric = df.select_dtypes(include=[np.number])
     stats = {
         col: {
@@ -53,13 +50,17 @@ def save_training_stats(df: pd.DataFrame, path: Path | None = None) -> None:
         }
         for col in numeric.columns
     }
-    joblib.dump(stats, target)
+    joblib.dump(stats, path)
 
 
-def check_drift(raw_df: pd.DataFrame, z_threshold: float = 3.0) -> dict[str, Any]:
-    reference = load_training_stats()
+def check_drift(
+    raw_df: pd.DataFrame,
+    stats_path: Path,
+    z_threshold: float = 3.0,
+) -> dict[str, Any]:
+    reference = load_training_stats(stats_path)
     if reference is None:
-        return {"drift_detected": False, "message": "No training_stats.pkl; drift check skipped", "columns": []}
+        return {"drift_detected": False, "message": "No xgb95_train_stats.pkl; drift check skipped", "columns": []}
 
     alerts: list[dict[str, Any]] = []
     numeric = raw_df.select_dtypes(include=[np.number])
@@ -121,15 +122,16 @@ def _feature_drift_score(values: pd.Series, ref: dict[str, float]) -> float:
 
 def compute_feature_drift(
     raw_df: pd.DataFrame,
+    stats_path: Path,
     features_df: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     """Batch drift monitor for key IEEE-CIS features vs training reference."""
-    reference = load_training_stats()
+    reference = load_training_stats(stats_path)
     if reference is None:
         return {
             "drift_detected": False,
             "high_drift_count": 0,
-            "message": "No training_stats.pkl; drift monitoring unavailable",
+            "message": "No xgb95_train_stats.pkl; drift monitoring unavailable",
             "features": [],
         }
 

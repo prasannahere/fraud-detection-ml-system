@@ -21,7 +21,7 @@ from src.config import (
 )
 from src.drift import check_drift
 from src.explain import explain_prediction
-from src.preprocess import FraudPreprocessor, normalize_identity_columns
+from shared.preprocess import FraudPreprocessor, normalize_identity_columns
 
 logger = logging.getLogger("fraud_api.predict")
 
@@ -84,7 +84,7 @@ def _load_artifacts() -> None:
     if not ENCODERS_PATH.exists():
         raise ArtifactError(
             f"Missing preprocessing artifact: {ENCODERS_PATH}. "
-            "Run notebooks/kaggle_export_encoders_standalone.py on Kaggle after training."
+            "Run training/xgb_train.py to generate xgb95_encoders.pkl and related artifacts."
         )
 
     model_path = _resolve_model_path()
@@ -97,7 +97,7 @@ def _load_artifacts() -> None:
 
     if not _feature_alignment["aligned"]:
         logger.warning(
-            "Feature mismatch: %s model columns absent from encoders.pkl (first 5: %s). "
+            "Feature mismatch: %s model columns absent from xgb95_encoders.pkl (first 5: %s). "
             "Re-export encoders on Kaggle in the same session as training. "
             "Missing columns will be filled with -1 at inference.",
             _feature_alignment["missing_count"],
@@ -113,7 +113,7 @@ def warmup_artifacts() -> None:
 def artifacts_status() -> dict[str, Any]:
     model_dir = MODEL_PATH.parent
     features_exist = FEATURES_PATH.exists() or any(
-        (model_dir / name).exists() for name in ("features.pkl", "feature_columns.pkl")
+        (model_dir / name).exists() for name in ("xgb95_features.pkl", "xgb95_final_features.pkl", "features.pkl", "feature_columns.pkl")
     )
     base = {
         "model_loaded": MODEL_PATH.exists() or (model_dir / "fraud_model.pkl").exists(),

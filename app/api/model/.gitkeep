@@ -1,0 +1,7 @@
+# Expected artifacts (from training/xgb_train.py or GCS):
+#   xgb95.ubj
+#   xgb95_features.pkl
+#   xgb95_encoders.pkl
+#   xgb95_train_stats.pkl
+#   xgb_threshold.json
+#   xgb95_metadata.json

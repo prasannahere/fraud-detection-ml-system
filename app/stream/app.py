@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 
 from scoring import close_client, score_transaction, scoring_enabled
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 DATA_FILE_PATH = os.getenv("DATA_FILE_PATH", "data/sample_transactions.csv")
 STREAM_INTERVAL_SECONDS = float(os.getenv("STREAM_INTERVAL_SECONDS", "1"))

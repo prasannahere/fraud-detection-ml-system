@@ -228,8 +228,8 @@ node_modules/
 *.parquet
 
 # Committed demo stream data (CI + Cloud Run)
-!stream-service/data/
-!stream-service/data/sample_transactions.csv
+!app/stream/data/
+!app/stream/data/sample_transactions.csv
 
 outputs/
 
@@ -240,9 +240,14 @@ outputs/
 /data
 /model
 /notebooks
+/dev
 
 # Model artifacts (loaded from GCS in production; keep locally for dev)
-fraud-api/model/*
-!fraud-api/model/.gitkeep
-!fraud-api/model/metadata.json
-!fraud-api/model/threshold.json
+app/api/model/*
+!app/api/model/.gitkeep
+!app/api/model/xgb95_metadata.json
+!app/api/model/xgb_threshold.json
+
+# Compiled pipeline specs
+pipelines/compiled/*
+!pipelines/compiled/.gitkeep

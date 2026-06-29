@@ -72,7 +72,7 @@ def resolve_path(
     default: Path,
     *,
     output: bool = False,
-) -> Path:
+        ) -> Path:
     """CLI > environment variable > default."""
     if cli is not None:
         return normalize_output_dir(cli) if output else gcs_fuse_path(cli)
@@ -199,7 +199,7 @@ def train_valid_indices(
     df: pd.DataFrame,
     valid_fraction: float,
     method: str,
-) -> tuple[pd.Index, pd.Index]:
+        ) -> tuple[pd.Index, pd.Index]:
     n_valid = max(1, int(len(df) * valid_fraction))
 
     if method == "temporal":

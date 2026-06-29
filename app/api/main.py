@@ -157,7 +157,7 @@ def model_info() -> ModelInfoResponse:
 def predict(
     transaction: TransactionInput,
     threshold: float | None = Query(default=None, ge=0.0, le=1.0),
-) -> PredictionResponse:
+        ) -> PredictionResponse:
     with log_prediction_request("/predict") as log_ctx:
         result = predict_fraud(_to_dataframe(transaction), threshold=threshold)
         log_ctx.update(
@@ -183,7 +183,7 @@ def predict(
 def predict_batch(
     batch: BatchTransactionInput,
     threshold: float | None = Query(default=None, ge=0.0, le=1.0),
-) -> BatchPredictionResponse:
+        ) -> BatchPredictionResponse:
     with log_prediction_request("/predict_batch", {"batch_size": len(batch.transactions)}) as log_ctx:
         result = predict_fraud_batch(_to_batch_dataframe(batch), threshold=threshold)
         log_ctx["threshold_used"] = result["threshold_used"]
@@ -202,7 +202,7 @@ def explain(
     transaction: TransactionInput,
     threshold: float | None = Query(default=None, ge=0.0, le=1.0),
     top_k: int = Query(default=10, ge=1, le=50),
-) -> ExplainResponse:
+        ) -> ExplainResponse:
     with log_prediction_request("/explain") as log_ctx:
         result = explain_fraud(_to_dataframe(transaction), threshold=threshold, top_k=top_k)
         log_ctx.update(

@@ -57,7 +57,7 @@ def check_drift(
     raw_df: pd.DataFrame,
     stats_path: Path,
     z_threshold: float = 3.0,
-) -> dict[str, Any]:
+        ) -> dict[str, Any]:
     reference = load_training_stats(stats_path)
     if reference is None:
         return {"drift_detected": False, "message": "No xgb95_train_stats.pkl; drift check skipped", "columns": []}
@@ -124,7 +124,7 @@ def compute_feature_drift(
     raw_df: pd.DataFrame,
     stats_path: Path,
     features_df: pd.DataFrame | None = None,
-) -> dict[str, Any]:
+        ) -> dict[str, Any]:
     """Batch drift monitor for key IEEE-CIS features vs training reference."""
     reference = load_training_stats(stats_path)
     if reference is None:

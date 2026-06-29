@@ -24,5 +24,5 @@ def check_drift(raw_df: pd.DataFrame, z_threshold: float = 3.0) -> dict[str, Any
 def compute_feature_drift(
     raw_df: pd.DataFrame,
     features_df: pd.DataFrame | None = None,
-) -> dict[str, Any]:
+        ) -> dict[str, Any]:
     return _compute_feature_drift(raw_df, TRAINING_STATS_PATH, features_df=features_df)

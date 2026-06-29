@@ -37,7 +37,7 @@ class FraudPreprocessor:
 
     def fit(self, train_df: pd.DataFrame, test_df: pd.DataFrame | None = None) -> "FraudPreprocessor":
         train = train_df.copy()
-        test = test_df.copy() if test_df is not None else pd.DataFrame(index=train.index)
+        test = test_df.copy() if test_df is not None else pd.DataFrame()
 
         train = normalize_d_columns(train)
         test = normalize_d_columns(test)
@@ -164,7 +164,7 @@ def _fit_aggregation_map(
     main_col: str,
     uid: str,
     agg: str,
-) -> dict[Any, float]:
+        ) -> dict[Any, float]:
     combined = pd.concat([train_df[[uid, main_col]], test_df[[uid, main_col]]], axis=0).copy()
     combined[main_col] = combined[main_col].replace(-1, np.nan)
     agg_map = combined.groupby(uid, dropna=False)[main_col].agg(agg)
@@ -227,7 +227,7 @@ def _apply_feature_engineering(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
     fit: bool,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
     train = train_df.copy()
     test = test_df.copy()
 
@@ -275,7 +275,7 @@ def _frequency_encode(
     test_df: pd.DataFrame,
     cols: list[str],
     fit: bool,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
     train = train_df.copy()
     test = test_df.copy()
     train_feats: dict[str, pd.Series] = {}
@@ -304,7 +304,7 @@ def _aggregate_features(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
     fit: bool,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
     train = train_df.copy()
     test = test_df.copy()
     train_feats: dict[str, pd.Series] = {}
@@ -345,7 +345,7 @@ def encode_fe(
     cols: list[str],
     preprocessor: FraudPreprocessor | None = None,
     fit: bool = True,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
     pre = preprocessor or FraudPreprocessor()
     return _frequency_encode(pre, train_df, test_df, cols, fit)
 
@@ -356,7 +356,7 @@ def encode_le(
     col: str,
     preprocessor: FraudPreprocessor | None = None,
     fit: bool = True,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
     pre = preprocessor or FraudPreprocessor()
     train = train_df.copy()
     test = test_df.copy()
@@ -375,7 +375,7 @@ def encode_cb(
     col2: str,
     preprocessor: FraudPreprocessor | None = None,
     fit: bool = True,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
     pre = preprocessor or FraudPreprocessor()
     combined_col = f"{col1}_{col2}"
     train = _add_feature_frame(train_df, {combined_col: _combine_columns(train_df, col1, col2)})
@@ -393,7 +393,7 @@ def encode_ag(
     usena: bool = True,
     preprocessor: FraudPreprocessor | None = None,
     fit: bool = True,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
     pre = preprocessor or FraudPreprocessor()
     main_columns = main_columns or AGG_MAIN_COLUMNS
     uids = uids or AGG_UIDS
@@ -431,7 +431,7 @@ def encode_ag2(
     uids: list[str],
     preprocessor: FraudPreprocessor | None = None,
     fit: bool = True,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
     pre = preprocessor or FraudPreprocessor()
     if not hasattr(pre, "nunique_maps"):
         pre.nunique_maps = {}
@@ -480,7 +480,7 @@ def load_ieee_data(
     train_identity_path: str | Path | None = None,
     test_transaction_path: str | Path | None = None,
     test_identity_path: str | Path | None = None,
-) -> tuple[pd.DataFrame, pd.Series | None, pd.DataFrame | None]:
+        ) -> tuple[pd.DataFrame, pd.Series | None, pd.DataFrame | None]:
     dtypes = build_dtypes()
 
     train = pd.read_csv(

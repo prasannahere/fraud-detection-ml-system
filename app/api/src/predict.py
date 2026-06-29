@@ -169,7 +169,7 @@ def _prepare_features(input_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
 def predict_fraud(
     input_df: pd.DataFrame,
     threshold: float | None = None,
-) -> dict[str, Any]:
+        ) -> dict[str, Any]:
     _load_artifacts()
     assert _model is not None
 
@@ -190,7 +190,7 @@ def predict_fraud(
 def predict_fraud_batch(
     input_df: pd.DataFrame,
     threshold: float | None = None,
-) -> dict[str, Any]:
+        ) -> dict[str, Any]:
     _load_artifacts()
     assert _model is not None
 
@@ -219,7 +219,7 @@ def explain_fraud(
     input_df: pd.DataFrame,
     threshold: float | None = None,
     top_k: int = 10,
-) -> dict[str, Any]:
+        ) -> dict[str, Any]:
     _load_artifacts()
     assert _model is not None
     assert _feature_columns is not None

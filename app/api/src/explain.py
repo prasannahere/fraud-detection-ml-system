@@ -13,7 +13,7 @@ def explain_prediction(
     features: pd.DataFrame,
     feature_columns: list[str],
     top_k: int = 10,
-) -> dict[str, list[dict[str, Any]]]:
+        ) -> dict[str, list[dict[str, Any]]]:
     matrix = features[feature_columns].to_numpy(dtype="float32")
     dmatrix = xgb.DMatrix(matrix, feature_names=feature_columns)
     contribs = model.get_booster().predict(dmatrix, pred_contribs=True)

@@ -9,8 +9,17 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-load_dotenv(REPO_ROOT / ".env")
+
+def _load_repo_dotenv() -> None:
+    """Load .env from the first ancestor directory that contains one."""
+    for parent in Path(__file__).resolve().parents:
+        env_file = parent / ".env"
+        if env_file.is_file():
+            load_dotenv(env_file)
+            return
+
+
+_load_repo_dotenv()
 
 MODEL_PATH = Path(os.getenv("MODEL_PATH", "model/xgb95.ubj"))
 ENCODERS_PATH = Path(os.getenv("ENCODERS_PATH", "model/xgb95_encoders.pkl"))
@@ -18,6 +27,62 @@ TRAINING_STATS_PATH = Path(os.getenv("TRAINING_STATS_PATH", "model/xgb95_train_s
 METADATA_PATH = Path(os.getenv("METADATA_PATH", "model/xgb95_metadata.json"))
 THRESHOLD_PATH = Path(os.getenv("THRESHOLD_PATH", "model/xgb_threshold.json"))
 FEATURES_PATH = Path(os.getenv("FEATURES_PATH", "model/xgb95_features.pkl"))
+
+
+def _first_existing(*candidates: Path) -> Path | None:
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
+def _artifact_dir() -> Path:
+    return MODEL_PATH.parent
+
+
+def resolve_model_path() -> Path:
+    found = _first_existing(
+        MODEL_PATH,
+        _artifact_dir() / "xgb95_final.ubj",
+        _artifact_dir() / "fraud_model.pkl",
+    )
+    if found is None:
+        raise FileNotFoundError(f"Missing model artifact under {_artifact_dir()}")
+    return found
+
+
+def resolve_encoders_path() -> Path:
+    found = _first_existing(
+        ENCODERS_PATH,
+        _artifact_dir() / "encoders.pkl",
+    )
+    if found is None:
+        raise FileNotFoundError(f"Missing encoders artifact under {_artifact_dir()}")
+    return found
+
+
+def resolve_training_stats_path() -> Path:
+    found = _first_existing(
+        TRAINING_STATS_PATH,
+        _artifact_dir() / "training_stats.pkl",
+    )
+    if found is None:
+        raise FileNotFoundError(f"Missing training stats artifact under {_artifact_dir()}")
+    return found
+
+
+def resolve_metadata_path() -> Path | None:
+    return _first_existing(
+        METADATA_PATH,
+        _artifact_dir() / "metadata.json",
+    )
+
+
+def resolve_threshold_path() -> Path | None:
+    return _first_existing(
+        THRESHOLD_PATH,
+        _artifact_dir() / "threshold.json",
+    )
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-change-me-in-production")
 JWT_ALGORITHM = "HS256"
@@ -55,8 +120,9 @@ BIGQUERY_TABLE = os.getenv("BIGQUERY_TABLE", "prediction_audit")
 @lru_cache(maxsize=1)
 def load_thresholds() -> dict[str, float]:
     defaults = {"block": 0.85, "review": 0.60, "default": 0.82}
-    if THRESHOLD_PATH.exists():
-        with THRESHOLD_PATH.open() as f:
+    threshold_path = resolve_threshold_path()
+    if threshold_path is not None:
+        with threshold_path.open() as f:
             loaded = json.load(f)
         defaults.update({k: float(v) for k, v in loaded.items()})
     return defaults
@@ -71,22 +137,24 @@ def load_metadata() -> dict:
         "threshold": load_thresholds()["default"],
         "features": None,
     }
-    if METADATA_PATH.exists():
-        with METADATA_PATH.open() as f:
+    metadata_path = resolve_metadata_path()
+    if metadata_path is not None:
+        with metadata_path.open() as f:
             loaded = json.load(f)
         defaults.update(loaded)
     return defaults
 
 
 def resolve_features_path() -> Path:
-    if FEATURES_PATH.exists():
-        return FEATURES_PATH
-    model_dir = FEATURES_PATH.parent
-    for name in ("xgb95_final_features.pkl", "features.pkl", "feature_columns.pkl"):
-        candidate = model_dir / name
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError(
-        "Missing features artifact. Expected one of: "
-        f"{FEATURES_PATH}, {model_dir / 'features.pkl'}, {model_dir / 'feature_columns.pkl'}"
+    found = _first_existing(
+        FEATURES_PATH,
+        _artifact_dir() / "xgb95_final_features.pkl",
+        _artifact_dir() / "features.pkl",
+        _artifact_dir() / "feature_columns.pkl",
     )
+    if found is None:
+        raise FileNotFoundError(
+            "Missing features artifact. Expected one of: "
+            f"{FEATURES_PATH}, {_artifact_dir() / 'xgb95_final_features.pkl'}"
+        )
+    return found

@@ -11,13 +11,12 @@ import pandas as pd
 import xgboost as xgb
 
 from src.config import (
-    ENCODERS_PATH,
-    FEATURES_PATH,
-    MODEL_PATH,
     MODEL_VERSION,
     load_metadata,
     load_thresholds,
+    resolve_encoders_path,
     resolve_features_path,
+    resolve_model_path,
 )
 from src.drift import check_drift
 from src.explain import explain_prediction
@@ -42,12 +41,10 @@ class FeatureValidationError(ValueError):
 
 
 def _resolve_model_path() -> Path:
-    if MODEL_PATH.exists():
-        return MODEL_PATH
-    legacy = MODEL_PATH.parent / "fraud_model.pkl"
-    if legacy.exists():
-        return legacy
-    raise ArtifactError(f"Missing model artifact: {MODEL_PATH}")
+    try:
+        return resolve_model_path()
+    except FileNotFoundError as exc:
+        raise ArtifactError(str(exc)) from exc
 
 
 def _load_model(model_path: Path):
@@ -81,17 +78,18 @@ def _load_artifacts() -> None:
     if _model is not None:
         return
 
-    if not ENCODERS_PATH.exists():
+    try:
+        encoders_path = resolve_encoders_path()
+    except FileNotFoundError as exc:
         raise ArtifactError(
-            f"Missing preprocessing artifact: {ENCODERS_PATH}. "
-            "Run training/xgb_train.py to generate xgb95_encoders.pkl and related artifacts."
-        )
+            f"{exc}. Run training/xgb_train.py to generate encoder artifacts."
+        ) from exc
 
     model_path = _resolve_model_path()
     features_path = resolve_features_path()
 
     _model = _load_model(model_path)
-    _preprocessor = FraudPreprocessor.load(ENCODERS_PATH)
+    _preprocessor = FraudPreprocessor.load(encoders_path)
     _feature_columns = joblib.load(features_path)
     _feature_alignment = _validate_feature_alignment()
 
@@ -111,14 +109,28 @@ def warmup_artifacts() -> None:
 
 
 def artifacts_status() -> dict[str, Any]:
-    model_dir = MODEL_PATH.parent
-    features_exist = FEATURES_PATH.exists() or any(
-        (model_dir / name).exists() for name in ("xgb95_features.pkl", "xgb95_final_features.pkl", "features.pkl", "feature_columns.pkl")
-    )
+    try:
+        resolve_model_path()
+        model_loaded = True
+    except FileNotFoundError:
+        model_loaded = False
+
+    try:
+        resolve_encoders_path()
+        encoders_loaded = True
+    except FileNotFoundError:
+        encoders_loaded = False
+
+    try:
+        resolve_features_path()
+        features_loaded = True
+    except FileNotFoundError:
+        features_loaded = False
+
     base = {
-        "model_loaded": MODEL_PATH.exists() or (model_dir / "fraud_model.pkl").exists(),
-        "encoders_loaded": ENCODERS_PATH.exists(),
-        "features_loaded": features_exist,
+        "model_loaded": model_loaded,
+        "encoders_loaded": encoders_loaded,
+        "features_loaded": features_loaded,
         "features_aligned": False,
         "model_feature_count": None,
     }

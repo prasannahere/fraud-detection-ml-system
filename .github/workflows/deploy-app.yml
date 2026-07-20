@@ -102,16 +102,21 @@ jobs:
             --allow-unauthenticated \
             --add-volume name=gcs-artifacts,type=cloud-storage,bucket=${{ env.GCS_ARTIFACTS_BUCKET }} \
             --add-volume-mount volume=gcs-artifacts,mount-path=/mnt/gcs \
-            --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS},MODEL_PATH=/mnt/gcs/models/xgb95/xgb95.ubj,ENCODERS_PATH=/mnt/gcs/models/xgb95/xgb95_encoders.pkl,TRAINING_STATS_PATH=/mnt/gcs/models/xgb95/xgb95_train_stats.pkl,METADATA_PATH=/mnt/gcs/models/xgb95/xgb95_metadata.json,THRESHOLD_PATH=/mnt/gcs/models/xgb95/xgb_threshold.json,FEATURES_PATH=/mnt/gcs/models/xgb95/xgb95_features.pkl" \
+            --set-env-vars "MODEL_VERSION=v1,ENABLE_AUDIT=false,GCP_PROJECT=${{ env.GCP_PROJECT_ID }},BIGQUERY_DATASET=fraud_ml,BIGQUERY_TABLE=prediction_audit,JWT_EXPIRE_MINUTES=60,JWT_SECRET=${JWT_SECRET},FRAUD_AUTH_USERS=${FRAUD_AUTH_USERS},MODEL_PATH=/mnt/gcs/models/xgb95/xgb95_final.ubj,ENCODERS_PATH=/mnt/gcs/models/xgb95/encoders.pkl,TRAINING_STATS_PATH=/mnt/gcs/models/xgb95/training_stats.pkl,METADATA_PATH=/mnt/gcs/models/xgb95/metadata.json,THRESHOLD_PATH=/mnt/gcs/models/xgb95/threshold.json,FEATURES_PATH=/mnt/gcs/models/xgb95/xgb95_final_features.pkl" \
             --quiet
 
   deploy-stream:
     name: Deploy stream
-    needs: changes
+    needs: [changes, deploy-api]
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      needs.changes.outputs.stream == 'true' ||
-      needs.changes.outputs.workflow == 'true'
+      always() &&
+      !cancelled() &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        needs.changes.outputs.stream == 'true' ||
+        needs.changes.outputs.workflow == 'true'
+      )
     runs-on: ubuntu-latest
 
     steps:
@@ -143,6 +148,11 @@ jobs:
           API_URL=$(gcloud run services describe api \
             --region "${{ env.GCP_REGION }}" \
             --format 'value(status.url)')
+
+          if [ -z "$API_URL" ]; then
+            echo "api service has no URL — deploy api first and ensure it is Ready"
+            exit 1
+          fi
 
           gcloud run deploy stream \
             --image "$IMAGE" \

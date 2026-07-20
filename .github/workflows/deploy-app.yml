@@ -164,7 +164,7 @@ jobs:
             --allow-unauthenticated \
             --add-volume name=gcs-artifacts,type=cloud-storage,bucket=${{ env.GCS_ARTIFACTS_BUCKET }} \
             --add-volume-mount volume=gcs-artifacts,mount-path=/mnt/gcs \
-            --set-env-vars "DATA_FILE_PATH=/mnt/gcs/data/sample_transactions.csv,STREAM_INTERVAL_SECONDS=1,API_URL=${API_URL},FRAUD_AUTH_USERNAME=${FRAUD_AUTH_USERNAME:-admin},FRAUD_AUTH_PASSWORD=${FRAUD_AUTH_PASSWORD},FRAUD_THRESHOLD=0.8" \
+            --set-env-vars "DATA_FILE_PATH=/mnt/gcs/data/sample_transactions.csv,STREAM_INTERVAL_SECONDS=0.5,API_URL=${API_URL},FRAUD_AUTH_USERNAME=${FRAUD_AUTH_USERNAME:-admin},FRAUD_AUTH_PASSWORD=${FRAUD_AUTH_PASSWORD},FRAUD_THRESHOLD=0.8" \
             --quiet
 
   deploy-frontend:

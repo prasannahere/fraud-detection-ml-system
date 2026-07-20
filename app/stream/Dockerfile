@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py scoring.py .
 
-ENV STREAM_INTERVAL_SECONDS=1
+ENV STREAM_INTERVAL_SECONDS=0.5
 
 EXPOSE 8000
 

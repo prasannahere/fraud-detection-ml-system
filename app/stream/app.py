@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -29,7 +30,13 @@ def _load_repo_dotenv() -> None:
 _load_repo_dotenv()
 
 DATA_FILE_PATH = os.getenv("DATA_FILE_PATH", "data/sample_transactions.csv")
-STREAM_INTERVAL_SECONDS = float(os.getenv("STREAM_INTERVAL_SECONDS", "1"))
+STREAM_INTERVAL_SECONDS = float(os.getenv("STREAM_INTERVAL_SECONDS", "0.5"))
+SCORE_TIMEOUT_SECONDS = float(
+    os.getenv(
+        "STREAM_SCORE_TIMEOUT_SECONDS",
+        str(max(0.05, STREAM_INTERVAL_SECONDS * 0.85)),
+    )
+)
 
 app = FastAPI(title="Transaction Stream Service", version="1.0.0")
 
@@ -112,6 +119,8 @@ def health() -> dict[str, Any]:
         "rows": 0 if _df is None else len(_df),
         "data_file": DATA_FILE_PATH,
         "server_side_scoring": scoring_enabled(),
+        "stream_interval_seconds": STREAM_INTERVAL_SECONDS,
+        "score_timeout_seconds": SCORE_TIMEOUT_SECONDS,
     }
 
 
@@ -142,6 +151,21 @@ def batch_rows(limit: int = 30) -> dict[str, Any]:
     return {"transactions": [_row_to_json(row) for _, row in sample.iterrows()]}
 
 
+async def _build_stream_payload(row: dict[str, Any]) -> dict[str, Any]:
+    """Score when possible within budget; otherwise emit raw row for client-side scoring."""
+    if not scoring_enabled():
+        return row
+
+    try:
+        scored = await asyncio.wait_for(score_transaction(row), timeout=SCORE_TIMEOUT_SECONDS)
+        if scored is not None:
+            return scored
+    except asyncio.TimeoutError:
+        pass
+
+    return row
+
+
 @app.get("/stream")
 async def stream_rows() -> StreamingResponse:
     if _df is None:
@@ -149,12 +173,12 @@ async def stream_rows() -> StreamingResponse:
 
     async def event_generator():
         while True:
+            loop_start = time.monotonic()
             row = get_next_row()
-            payload = await score_transaction(row)
-            if payload is None:
-                payload = row
+            payload = await _build_stream_payload(row)
             yield f"data: {json.dumps(payload)}\n\n"
-            await asyncio.sleep(STREAM_INTERVAL_SECONDS)
+            elapsed = time.monotonic() - loop_start
+            await asyncio.sleep(max(0.0, STREAM_INTERVAL_SECONDS - elapsed))
 
     return StreamingResponse(
         event_generator(),

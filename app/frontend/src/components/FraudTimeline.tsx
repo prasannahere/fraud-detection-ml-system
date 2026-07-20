@@ -68,7 +68,10 @@ export function FraudTimeline({ transactions, threshold = FRAUD_THRESHOLD, expan
     <section className={`panel ${expanded ? "panel-expanded" : ""}`}>
       <div className="panel-header">
         <div>
-          <h2 className="panel-title">Fraud Score Timeline</h2>
+          <h2 className="panel-title">
+            <span className="material-symbols-outlined">timeline</span>
+            Fraud Score Timeline
+          </h2>
           <p className="panel-subtitle">Real-time anomaly blips across scored transactions</p>
         </div>
         <div className="legend-row">
@@ -107,7 +110,10 @@ export function FraudTimeline({ transactions, threshold = FRAUD_THRESHOLD, expan
         style={expanded ? { minHeight: chartHeight, height: chartHeight } : undefined}
       >
         {transactions.length === 0 ? (
-          <div className="empty-state">Start the live stream or score transactions to populate the timeline.</div>
+          <div className="empty-state">
+            <span className="material-symbols-outlined">show_chart</span>
+            Start the live stream or score transactions to populate the timeline.
+          </div>
         ) : (
           <Plot
             data={[
@@ -117,7 +123,7 @@ export function FraudTimeline({ transactions, threshold = FRAUD_THRESHOLD, expan
                 name: "Normal",
                 x: normal.map((t) => new Date(t.timestamp)),
                 y: normal.map((t) => t.fraudScore),
-                marker: { color: "rgba(110, 110, 128, 0.55)", size: 8, opacity: 0.85, line: { width: 0 } },
+                marker: { color: "rgba(26, 115, 232, 0.55)", size: 8, opacity: 0.85, line: { width: 0 } },
                 hovertemplate:
                   "<b>Txn %{customdata[0]}</b><br>Amount: %{customdata[1]}<br>Score: %{y:.1%}<br>Time: %{customdata[2]}<br>Prediction: Normal<extra></extra>",
                 customdata: normal.map((t) => [
@@ -133,10 +139,10 @@ export function FraudTimeline({ transactions, threshold = FRAUD_THRESHOLD, expan
                 x: fraud.map((t) => new Date(t.timestamp)),
                 y: fraud.map((t) => t.fraudScore),
                 marker: {
-                  color: "rgba(13, 13, 13, 0.85)",
+                  color: "rgba(217, 48, 37, 0.9)",
                   size: 10,
                   symbol: "diamond",
-                  line: { color: "rgba(13, 13, 13, 0.2)", width: 1 },
+                  line: { color: "rgba(217, 48, 37, 0.25)", width: 1 },
                 },
                 hovertemplate:
                   "<b>Txn %{customdata[0]}</b><br>Amount: %{customdata[1]}<br>Score: %{y:.1%}<br>Time: %{customdata[2]}<br>Prediction: Fraud<extra></extra>",
@@ -176,7 +182,7 @@ export function FraudTimeline({ transactions, threshold = FRAUD_THRESHOLD, expan
                   x1: 1,
                   y0: threshold,
                   y1: threshold,
-                  line: { color: "#c5c5d0", width: 1.5, dash: "dash" },
+                  line: { color: "#80868b", width: 1.5, dash: "dash" },
                 },
               ],
               annotations: [

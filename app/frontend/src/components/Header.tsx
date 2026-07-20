@@ -49,7 +49,7 @@ export function Header({
         </div>
         <div>
           <div className="header-title">IEEE - CIS</div>
-          <div className="header-subtitle">Fraud monitoring</div>
+          <div className="header-subtitle">Fraud Operations Center</div>
         </div>
       </div>
 
@@ -57,10 +57,12 @@ export function Header({
         <div className="stream-controls">
           {!streaming ? (
             <button className="btn btn-primary btn-sm" type="button" onClick={onStartStream} disabled={!signedIn}>
+              <span className="material-symbols-outlined icon-sm">play_arrow</span>
               Start stream
             </button>
           ) : (
             <button className="btn btn-danger btn-sm" type="button" onClick={onStopStream}>
+              <span className="material-symbols-outlined icon-sm">stop</span>
               Stop
             </button>
           )}
@@ -71,11 +73,12 @@ export function Header({
             </span>
           )}
           <button
-            className="btn btn-ghost btn-sm"
+            className="btn btn-tonal btn-sm"
             type="button"
             onClick={onLoadBatch}
             disabled={batchLoading || !signedIn}
           >
+            <span className="material-symbols-outlined icon-sm">database</span>
             {batchLoading ? "Loading…" : "Load batch"}
           </button>
         </div>

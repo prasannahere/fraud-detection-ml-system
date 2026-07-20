@@ -9,7 +9,7 @@ type Props = {
 };
 
 const CHART_HEIGHT_COMPACT = 320;
-const BAR_COLOR = "rgba(13, 13, 13, 0.55)";
+const BAR_COLOR = "rgba(26, 115, 232, 0.75)";
 const BAR_ROW_HEIGHT = 44;
 
 function chartHeightForFeatures(count: number, expanded: boolean) {
@@ -29,7 +29,10 @@ export function DriftMonitoring({ drift, loading, expanded = false }: Props) {
     <section className={`panel panel-drift ${expanded ? "panel-expanded" : ""}`}>
       <div className="panel-header">
         <div>
-          <h2 className="panel-title">Feature Drift Monitoring</h2>
+          <h2 className="panel-title">
+            <span className="material-symbols-outlined">monitoring</span>
+            Feature Drift Monitoring
+          </h2>
           <p className="panel-subtitle">Streaming distribution vs IEEE-CIS training reference</p>
         </div>
         {loading && features.length > 0 && (
@@ -52,9 +55,12 @@ export function DriftMonitoring({ drift, loading, expanded = false }: Props) {
           <>
             {hasHighDrift && (
               <div className="alert alert-info" role="alert">
-                <strong>High drift detected</strong> on {drift?.high_drift_count} feature
-                {drift?.high_drift_count === 1 ? "" : "s"}. Model reliability may degrade — review
-                incoming transaction patterns.
+                <span className="material-symbols-outlined">info</span>
+                <span>
+                  <strong>High drift detected</strong> on {drift?.high_drift_count} feature
+                  {drift?.high_drift_count === 1 ? "" : "s"}. Model reliability may degrade — review
+                  incoming transaction patterns.
+                </span>
               </div>
             )}
 

@@ -48,20 +48,20 @@ export function LoginOverlay({
           </div>
         </div>
         <h2 id="login-title" className="login-overlay-title">
-          Sign in to IEEE - CIS
+          Sign in
         </h2>
         <p className="login-overlay-subtitle">
-          Use your credentials to score transactions and view SHAP explanations.
+          Continue to IEEE - CIS Fraud Operations Center
         </p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <label className="login-field">
-            <span className="login-label">Username</span>
+            <span className="login-label">Email or username</span>
             <input
               className="input"
               value={username}
               onChange={(e) => onUsernameChange(e.target.value)}
-              placeholder="admin"
+              placeholder="Enter your username"
               autoComplete="username"
               autoFocus
             />
@@ -73,21 +73,24 @@ export function LoginOverlay({
               type="password"
               value={password}
               onChange={(e) => onPasswordChange(e.target.value)}
-              placeholder="••••••••"
+              placeholder="Enter your password"
               autoComplete="current-password"
             />
           </label>
 
           {error && (
             <div className="alert alert-error" role="alert">
-              {error}
+              <span className="material-symbols-outlined">error</span>
+              <span>{error}</span>
             </div>
           )}
 
           <button className="btn btn-primary login-submit" type="submit" disabled={loading}>
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Signing in…" : "Next"}
           </button>
         </form>
+
+        <p className="login-footer">Use your analyst credentials to access scoring and SHAP explanations.</p>
       </div>
     </div>
   );

@@ -61,19 +61,25 @@ export function TransactionMonitor({ transactions, selectedId, onSelect, expande
     <section className={`panel panel-fill ${expanded ? "panel-expanded" : ""}`}>
       <div className="panel-header">
         <div>
-          <h2 className="panel-title">Live Transaction Monitor</h2>
+          <h2 className="panel-title">
+            <span className="material-symbols-outlined">table_rows</span>
+            Live Transaction Monitor
+          </h2>
           <p className="panel-subtitle">Analyst queue — click a row for SHAP explainability</p>
         </div>
       </div>
 
       <div className="table-toolbar">
-        <input
-          className="search-input"
-          placeholder="Search by ID, amount, prediction…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search transactions"
-        />
+        <div className="search-input-wrap">
+          <span className="material-symbols-outlined">search</span>
+          <input
+            className="search-input"
+            placeholder="Search by ID, amount, prediction…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search transactions"
+          />
+        </div>
         <div className="filter-group" role="group" aria-label="Filter by prediction">
           {(["all", "fraud", "normal"] as PredictionFilter[]).map((f) => (
             <button
@@ -140,7 +146,9 @@ export function TransactionMonitor({ transactions, selectedId, onSelect, expande
                   <td className="mono">{formatAmount(t.amount)}</td>
                   <td className="mono">{formatPercent(t.fraudScore)}</td>
                   <td>
-                    <span className="pill pill-neutral">{t.prediction}</span>
+                    <span className={`pill ${t.prediction === "Fraud" ? "pill-danger" : "pill-safe"}`}>
+                      {t.prediction}
+                    </span>
                   </td>
                 </tr>
               ))

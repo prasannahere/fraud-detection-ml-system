@@ -373,7 +373,8 @@ export default function App() {
         <main className="main">
           {error && (
             <div className="alert alert-error" role="alert">
-              {error}
+              <span className="material-symbols-outlined">error</span>
+              <span>{error}</span>
             </div>
           )}
 

@@ -31,21 +31,35 @@ export function ExplainabilityPanel({ transaction, explain, loading, expanded = 
     <section className={`panel panel-fill ${expanded ? "panel-expanded" : ""}`}>
       <div className="panel-header">
         <div>
-          <h2 className="panel-title">Explainability</h2>
+          <h2 className="panel-title">
+            <span className="material-symbols-outlined">psychology</span>
+            Explainability
+          </h2>
           <p className="panel-subtitle">SHAP attribution · XGBoost IEEE-CIS</p>
         </div>
-        {transaction && <span className="pill pill-neutral">{transaction.prediction}</span>}
+        {transaction && (
+          <span className={`pill ${transaction.prediction === "Fraud" ? "pill-danger" : "pill-safe"}`}>
+            {transaction.prediction}
+          </span>
+        )}
       </div>
 
       <div className="panel-body explain-body">
         {!transaction ? (
           <div className="empty-state">
+            <span className="material-symbols-outlined">touch_app</span>
             Select a transaction from the monitor to inspect the model&rsquo;s reasoning.
           </div>
         ) : loading ? (
-          <div className="empty-state">Computing SHAP attributions…</div>
+          <div className="empty-state">
+            <span className="material-symbols-outlined">hourglass_top</span>
+            Computing SHAP attributions…
+          </div>
         ) : ranked.length === 0 ? (
-          <div className="empty-state">No SHAP attributions available for this transaction.</div>
+          <div className="empty-state">
+            <span className="material-symbols-outlined">data_alert</span>
+            No SHAP attributions available for this transaction.
+          </div>
         ) : (
           <>
             <div className="explain-summary">

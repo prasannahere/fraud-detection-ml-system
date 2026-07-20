@@ -54,7 +54,10 @@ jobs:
   deploy-api:
     name: Deploy api
     needs: changes
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.workflow == 'true'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.api == 'true' ||
+      needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -105,7 +108,10 @@ jobs:
   deploy-stream:
     name: Deploy stream
     needs: changes
-    if: needs.changes.outputs.stream == 'true' || needs.changes.outputs.workflow == 'true'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.stream == 'true' ||
+      needs.changes.outputs.workflow == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -157,7 +163,11 @@ jobs:
     if: |
       always() &&
       !cancelled() &&
-      (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.workflow == 'true') &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        needs.changes.outputs.frontend == 'true' ||
+        needs.changes.outputs.workflow == 'true'
+      ) &&
       (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped') &&
       (needs.deploy-stream.result == 'success' || needs.deploy-stream.result == 'skipped')
     runs-on: ubuntu-latest

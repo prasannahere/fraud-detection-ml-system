@@ -241,6 +241,7 @@ outputs/
 /model
 /notebooks
 /dev
+/output
 
 # Model artifacts (loaded from GCS in production; keep locally for dev)
 app/api/model/*
